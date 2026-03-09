@@ -34,7 +34,7 @@ const EmployeeSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Admin', 'Employee', 'Manager', 'HR'],
+    enum: ['Admin', 'HR Manager', 'QA', 'Developer', 'Manager', 'IT Team', 'Employee'],
     default: 'Employee',
   },
   designation: {
@@ -44,11 +44,11 @@ const EmployeeSchema = new mongoose.Schema({
   department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department',
-    required: true,
+    required: false,
   },
   status: {
     type: String,
-    enum: ['Active', 'On-Leave', 'Terminated'],
+    enum: ['Active', 'On Leave', 'Terminated'],
     default: 'Active',
   },
   joiningDate: {

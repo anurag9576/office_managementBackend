@@ -26,11 +26,13 @@ if (process.env.NODE_ENV === 'development') {
 // Route files
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/departments', departmentRoutes);
 app.use('/api/announcements', announcementRoutes);
 
 // Simple Welcome Route
