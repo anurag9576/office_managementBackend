@@ -88,12 +88,20 @@ const EmployeeSchema = new mongoose.Schema({
       default: 6,
     },
   },
+  salaryStructure: {
+    earnings: [{ label: String, actualAmount: Number, amount: Number }],
+    deductionsList: [{ label: String, amount: Number }],
+    grossAmount: { type: Number, default: 0 },
+    totalDeductions: { type: Number, default: 0 },
+    netAmount: { type: Number, default: 0 },
+    isAutoGenerate: { type: Boolean, default: true }
+  },
 }, { timestamps: true });
 
 // Hash password before saving
-EmployeeSchema.pre('save', async function (next) {
+EmployeeSchema.pre('save', async function () {
   if (!this.isModified('password')) {
-    next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

@@ -10,11 +10,18 @@ dotenv.config();
 // Connect to database
 connectDB();
 
+// Initialize Automated Payroll Scheduler
+require('./scripts/payrollScheduler');
+console.log('--- AUTO-PAYROLL SCHEDULER ACTIVE ---');
+
 const app = express();
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve static files
+app.use(express.static('public'));
 
 // Enable CORS
 app.use(cors());
@@ -30,6 +37,7 @@ const employeeRoutes = require('./routes/employee/employeeRoutes');
 const departmentRoutes = require('./routes/admin/departmentRoutes');
 const announcementRoutes = require('./routes/common/announcementRoutes');
 const leaveRoutes = require('./routes/employee/leaveRoutes');
+const payrollRoutes = require('./routes/employee/payrollRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -37,6 +45,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 // Simple Welcome Route
 app.get('/', (req, res) => {

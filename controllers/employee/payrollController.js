@@ -1,0 +1,177 @@
+const Payroll = require('../../models/Payroll');
+const Employee = require('../../models/Employee');
+
+// @desc    Get my payroll records
+// @route   GET /api/payroll/my-payrolls
+// @access  Private
+const getMyPayrolls = async (req, res) => {
+  try {
+    // Only fetch payrolls where paymentDate <= current date/time
+    const payrolls = await Payroll.find({ 
+      employee: req.user._id,
+      paymentDate: { $lte: new Date() }
+    }).sort('-paymentDate');
+    res.json({ success: true, data: payrolls });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get all payroll records (Admin)
+// @route   GET /api/payroll
+// @access  Private/Admin
+const getAllPayrolls = async (req, res) => {
+  try {
+    const payrolls = await Payroll.find().populate('employee', 'firstName lastName email employeeId').sort('-paymentDate');
+    res.json({ success: true, data: payrolls });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Generate payroll for an employee
+// @route   POST /api/payroll
+// @access  Private/Admin
+const generatePayroll = async (req, res) => {
+  try {
+    const { 
+      employeeId, 
+      email, 
+      month, 
+      year, 
+      paymentDate, 
+      grossAmount, 
+      earnings = [], 
+      deductionsList = [], 
+      period, 
+      status,
+      pdfUrl
+    } = req.body;
+
+    let targetEmployee;
+
+    // Find employee by email or employeeId
+    if (email) {
+      targetEmployee = await Employee.findOne({ email });
+    } else if (employeeId) {
+      // Try finding by custom employeeId string or MongoDB ID
+      targetEmployee = await Employee.findOne({ employeeId }) || await Employee.findById(employeeId);
+    }
+
+    if (!targetEmployee) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Employee not found with the provided email or ID' 
+      });
+    }
+
+    const totalEarnings = (earnings || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalDeductions = (deductionsList || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const netAmount = Number(grossAmount) + totalEarnings - totalDeductions;
+
+    // Force paymentDate to the end of the selected month
+    let finalPaymentDate;
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthIndex = monthNames.indexOf(month);
+    if (monthIndex !== -1) {
+      finalPaymentDate = new Date(year, monthIndex + 1, 0); // Sets to last day
+    } else {
+      finalPaymentDate = new Date(); 
+    }
+
+    let payroll = await Payroll.create({
+      employee: targetEmployee._id,
+      month,
+      year,
+      paymentDate: finalPaymentDate,
+      netAmount,
+      grossAmount: Number(grossAmount),
+      totalDeductions,
+      period: period || `${month} ${year}`,
+      designation: req.body.designation || targetEmployee.designation,
+      departmentName: req.body.departmentName || '',
+      daysPresent: req.body.daysPresent || 0,
+      daysAbsent: req.body.daysAbsent || 0,
+      totalDays: req.body.totalDays || 30,
+      earnings: earnings || [],
+      deductionsList: deductionsList || [],
+      pdfUrl: pdfUrl || ''
+    });
+
+    // Save this as the "Base Salary Structure" for the employee for auto-generation
+    targetEmployee.salaryStructure = {
+      earnings: earnings || [],
+      deductionsList: deductionsList || [],
+      grossAmount: Number(grossAmount) || 0,
+      totalDeductions: totalDeductions || 0,
+      netAmount: netAmount || 0,
+      isAutoGenerate: true
+    };
+    await targetEmployee.save();
+
+    payroll = await payroll.populate('employee', 'firstName lastName email employeeId');
+
+    res.status(201).json({ success: true, data: payroll });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Update payroll record
+// @route   PUT /api/payroll/:id
+// @access  Private/Admin
+const updatePayroll = async (req, res) => {
+  try {
+    const payroll = await Payroll.findById(req.params.id);
+    if (!payroll) {
+      return res.status(404).json({ success: false, message: 'Payroll record not found' });
+    }
+
+    // If earnings/deductions are updated, recalculate netAmount
+    if (req.body.earnings || req.body.deductionsList || req.body.grossAmount) {
+      const earnings = req.body.earnings || payroll.earnings;
+      const deductionsList = req.body.deductionsList || payroll.deductionsList;
+      const grossAmount = req.body.grossAmount || payroll.grossAmount;
+
+      const totalEarnings = earnings.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const totalDeductions = deductionsList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      
+      req.body.totalDeductions = totalDeductions;
+      req.body.netAmount = Number(grossAmount) + totalEarnings - totalDeductions;
+    }
+
+    const updatedPayroll = await Payroll.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate('employee', 'firstName lastName email employeeId');
+
+    res.json({ success: true, data: updatedPayroll });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Delete payroll record
+// @route   DELETE /api/payroll/:id
+// @access  Private/Admin
+const deletePayroll = async (req, res) => {
+  try {
+    const payroll = await Payroll.findById(req.params.id);
+    if (!payroll) {
+      return res.status(404).json({ success: false, message: 'Payroll record not found' });
+    }
+
+    await payroll.deleteOne();
+    res.json({ success: true, message: 'Payroll record removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+module.exports = {
+  getMyPayrolls,
+  getAllPayrolls,
+  generatePayroll,
+  updatePayroll,
+  deletePayroll
+};

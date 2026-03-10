@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Department = require('./models/Department');
+const Department = require('../models/Department');
 const dotenv = require('dotenv');
 
 dotenv.config();
