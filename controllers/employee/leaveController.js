@@ -1,0 +1,142 @@
+const Leave = require('../../models/Leave');
+const Employee = require('../../models/Employee');
+
+// @desc    Apply for leave
+// @route   POST /api/leaves
+// @access  Private
+const applyLeave = async (req, res) => {
+  try {
+    const { type, startDate, endDate, days, reason } = req.body;
+
+    // Check balance before applying (optional, but good practice)
+    const employee = await Employee.findById(req.user._id);
+    const leaveTypeKey = type === 'Sick Leave' ? 'sick' : 'casual';
+    
+    if (type !== 'Optional Leave' && employee.leaveBalance[leaveTypeKey] < days) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Insufficient ${type} balance. Available: ${employee.leaveBalance[leaveTypeKey]}` 
+      });
+    }
+
+    const leave = await Leave.create({
+      employee: req.user._id,
+      type,
+      startDate,
+      endDate,
+      days,
+      reason
+    });
+
+    res.status(201).json({ success: true, data: leave });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get my leaves
+// @route   GET /api/leaves/my-leaves
+// @access  Private
+const getMyLeaves = async (req, res) => {
+  try {
+    const leaves = await Leave.find({ employee: req.user._id }).sort('-startDate');
+    
+    let employee = await Employee.findById(req.user._id);
+
+    // Initialize balance if missing (for existing users)
+    if (!employee.leaveBalance || !employee.leaveBalance.casual) {
+      employee.leaveBalance = { casual: 12, sick: 6 };
+      await employee.save();
+    }
+
+    // Calculate taken leaves (Approved ones) - Case Insensitive
+    const approvedLeaves = leaves.filter(l => l.status.toLowerCase() === 'approved');
+    const taken = approvedLeaves.reduce((acc, curr) => acc + curr.days, 0);
+    
+    // Calculate pending leaves - Case Insensitive
+    const pendingCount = leaves.filter(l => l.status.toLowerCase() === 'pending').length;
+
+    const stats = {
+      total: 18,
+      casual: employee.leaveBalance.casual,
+      sick: employee.leaveBalance.sick,
+      taken: taken,
+      available: Math.max(0, 18 - taken), // Better to calculate as Total - Taken for UI consistency
+      pending: pendingCount
+    };
+
+    res.json({ success: true, data: leaves, stats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Update leave status (Admin/Approver)
+// @route   PUT /api/leaves/:id
+// @access  Private/Admin
+const updateLeaveStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const leave = await Leave.findById(req.params.id);
+
+    if (!leave) {
+      return res.status(404).json({ success: false, message: 'Leave not found' });
+    }
+
+    let employee = await Employee.findById(leave.employee);
+    
+    // Initialize balance if missing
+    if (!employee.leaveBalance || !employee.leaveBalance.casual) {
+      employee.leaveBalance = { casual: 12, sick: 6 };
+    }
+
+    const leaveTypeKey = leave.type === 'Sick Leave' ? 'sick' : 'casual';
+
+    const newStatus = status.toLowerCase();
+    const oldStatus = leave.status.toLowerCase();
+
+    // 1. If leave is being newly APPROVED: Deduct from balance
+    if (newStatus === 'approved' && oldStatus !== 'approved') {
+      if (leave.type !== 'Optional Leave') {
+        if (employee.leaveBalance[leaveTypeKey] < leave.days) {
+          return res.status(400).json({ success: false, message: 'Insufficient balance to approve this leave' });
+        }
+        employee.leaveBalance[leaveTypeKey] -= leave.days;
+      }
+    }
+
+    // 2. If an ALREADY APPROVED leave is changed to REJECTED or PENDING: Restore the balance
+    if (oldStatus === 'approved' && newStatus !== 'approved') {
+      if (leave.type !== 'Optional Leave') {
+        employee.leaveBalance[leaveTypeKey] += leave.days;
+      }
+    }
+
+    await employee.save();
+    leave.status = status;
+    await leave.save();
+
+    res.json({ success: true, data: leave });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get all leaves (Admin)
+// @route   GET /api/leaves
+// @access  Private/Admin
+const getAllLeaves = async (req, res) => {
+  try {
+    const leaves = await Leave.find().populate('employee', 'firstName lastName employeeId').sort('-startDate');
+    res.json({ success: true, data: leaves });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+module.exports = {
+  applyLeave,
+  getMyLeaves,
+  updateLeaveStatus,
+  getAllLeaves
+};

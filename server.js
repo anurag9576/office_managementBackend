@@ -13,7 +13,8 @@ connectDB();
 const app = express();
 
 // Body parser
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Enable CORS
 app.use(cors());
@@ -28,12 +29,14 @@ const authRoutes = require('./routes/common/authRoutes');
 const employeeRoutes = require('./routes/employee/employeeRoutes');
 const departmentRoutes = require('./routes/admin/departmentRoutes');
 const announcementRoutes = require('./routes/common/announcementRoutes');
+const leaveRoutes = require('./routes/employee/leaveRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/leaves', leaveRoutes);
 
 // Simple Welcome Route
 app.get('/', (req, res) => {

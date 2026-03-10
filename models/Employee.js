@@ -74,6 +74,20 @@ const EmployeeSchema = new mongoose.Schema({
   avatar: {
     type: String,
   },
+  location: {
+    type: String,
+    trim: true,
+  },
+  leaveBalance: {
+    casual: {
+      type: Number,
+      default: 12,
+    },
+    sick: {
+      type: Number,
+      default: 6,
+    },
+  },
 }, { timestamps: true });
 
 // Hash password before saving

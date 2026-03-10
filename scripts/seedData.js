@@ -35,22 +35,8 @@ const seedData = async () => {
       status: 'Active'
     });
 
-    // 3. Create Employee
-    await Employee.create({
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'test@hamsa.com',
-      password: 'Test@123',
-      employeeId: 'EMP001',
-      role: 'Employee',
-      designation: 'Software Engineer',
-      department: itDept._id,
-      status: 'Active'
-    });
-
     console.log('Seed data added successfully!');
     console.log('Admin: admin@hamsa.com / Test@123');
-    console.log('Employee: test@hamsa.com / Test@123');
 
     process.exit();
   } catch (error) {
