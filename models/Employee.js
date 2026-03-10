@@ -55,6 +55,25 @@ const EmployeeSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  phone: {
+    type: String,
+    trim: true,
+  },
+  personalEmail: {
+    type: String,
+    trim: true,
+  },
+  address: {
+    type: String,
+    trim: true,
+  },
+  emergencyContact: {
+    type: String,
+    trim: true,
+  },
+  avatar: {
+    type: String,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

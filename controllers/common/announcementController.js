@@ -1,4 +1,4 @@
-const Announcement = require('../models/Announcement');
+const Announcement = require('../../models/Announcement');
 
 // @desc    Get all announcements
 // @route   GET /api/announcements

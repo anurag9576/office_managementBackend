@@ -5,8 +5,8 @@ const {
   createDepartment,
   updateDepartment,
   deleteDepartment,
-} = require('../controllers/departmentController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+} = require('../../controllers/admin/departmentController');
+const { protect, authorize } = require('../../middleware/authMiddleware');
 
 router.get('/', protect, getDepartments);
 router.post('/', protect, authorize('Admin'), createDepartment);

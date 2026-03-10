@@ -1,4 +1,4 @@
-const Employee = require('../models/Employee');
+const Employee = require('../../models/Employee');
 
 // @desc    Get all employees
 // @route   GET /api/employees
@@ -30,13 +30,37 @@ const getEmployeeById = async (req, res) => {
 
 // @desc    Update employee
 // @route   PUT /api/employees/:id
-// @access  Private/Admin
+// @access  Private
 const updateEmployee = async (req, res) => {
   try {
-    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, req.body, {
+    // Check if user is Admin OR if they are updating their OWN profile
+    const isSelfUpdate = req.user._id.toString() === req.params.id;
+    const isAdmin = req.user.role === 'Admin';
+
+    if (!isAdmin && !isSelfUpdate) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You are not authorized to update this profile' 
+      });
+    }
+
+    let updateData = { ...req.body };
+
+    // If it's NOT an Admin, then strip sensitive fields to prevent privilege escalation
+    if (!isAdmin) {
+      delete updateData.role;
+      delete updateData.salary; // (if added in the future)
+      delete updateData.employeeId;
+      delete updateData.status;
+      delete updateData.department;
+      delete updateData.password; // Should have a separate change-password route
+    }
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     });
+    
     if (updatedEmployee) {
       res.json({ success: true, data: updatedEmployee });
     } else {

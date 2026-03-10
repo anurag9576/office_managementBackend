@@ -25,7 +25,7 @@ const seedData = async () => {
     // 2. Create Admin
     await Employee.create({
       firstName: 'Admin',
-      lastName: 'User',
+      lastName: 'User', 
       email: 'admin@hamsa.com',
       password: 'Test@123',
       employeeId: 'ADM001',

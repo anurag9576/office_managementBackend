@@ -24,10 +24,10 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Route files
-const authRoutes = require('./routes/authRoutes');
-const employeeRoutes = require('./routes/employeeRoutes');
-const departmentRoutes = require('./routes/departmentRoutes');
-const announcementRoutes = require('./routes/announcementRoutes');
+const authRoutes = require('./routes/common/authRoutes');
+const employeeRoutes = require('./routes/employee/employeeRoutes');
+const departmentRoutes = require('./routes/admin/departmentRoutes');
+const announcementRoutes = require('./routes/common/announcementRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
