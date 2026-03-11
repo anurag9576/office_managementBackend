@@ -8,8 +8,8 @@ const { createNotification } = require('../common/notificationController');
 const getAnnouncements = async (req, res) => {
   try {
     const announcements = await Announcement.find({})
-      .populate('author', 'firstName lastName')
-      .populate('comments.user', 'firstName lastName')
+      .populate('author', 'firstName lastName avatar')
+      .populate('comments.user', 'firstName lastName avatar')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: announcements.length, data: announcements });
   } catch (error) {

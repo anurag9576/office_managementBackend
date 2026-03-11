@@ -35,6 +35,7 @@ const registerEmployee = async (req, res) => {
         data: {
           _id: employee._id,
           firstName: employee.firstName,
+          lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
           token: generateToken(employee._id),
@@ -62,6 +63,7 @@ const loginEmployee = async (req, res) => {
         data: {
           _id: employee._id,
           firstName: employee.firstName,
+          lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
           token: generateToken(employee._id),
