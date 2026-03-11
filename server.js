@@ -35,6 +35,7 @@ const departmentRoutes = require('./routes/admin/departmentRoutes');
 const announcementRoutes = require('./routes/common/announcementRoutes');
 const leaveRoutes = require('./routes/employee/leaveRoutes');
 const payrollRoutes = require('./routes/employee/payrollRoutes');
+const notificationRoutes = require('./routes/common/notificationRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -43,6 +44,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Simple Welcome Route
 app.get('/', (req, res) => {

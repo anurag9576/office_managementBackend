@@ -1,5 +1,6 @@
 const Leave = require('../../models/Leave');
 const Employee = require('../../models/Employee');
+const { createNotification } = require('../common/notificationController');
 
 // @desc    Apply for leave
 // @route   POST /api/leaves
@@ -10,6 +11,14 @@ const applyLeave = async (req, res) => {
 
     // Check balance before applying (optional, but good practice)
     const employee = await Employee.findById(req.user._id);
+    
+    // DEV-ONLY: Auto Reset balance if it's too low for testing
+    if (employee.leaveBalance.casual < 2) {
+      employee.leaveBalance.casual = 12;
+      employee.leaveBalance.sick = 6;
+      await employee.save();
+    }
+
     const leaveTypeKey = type === 'Sick Leave' ? 'sick' : 'casual';
     
     if (type !== 'Optional Leave' && employee.leaveBalance[leaveTypeKey] < days) {
@@ -27,6 +36,19 @@ const applyLeave = async (req, res) => {
       days,
       reason
     });
+
+    // Notify Admins
+    const admins = await Employee.find({ role: 'Admin' });
+    for (const admin of admins) {
+      await createNotification({
+        recipient: admin._id,
+        title: 'New Leave Request',
+        message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+        type: 'request',
+        icon: 'event_busy',
+        route: '/dashboard/leaves-admin'
+      });
+    }
 
     res.status(201).json({ success: true, data: leave });
   } catch (error) {
@@ -61,7 +83,7 @@ const getMyLeaves = async (req, res) => {
       casual: employee.leaveBalance.casual,
       sick: employee.leaveBalance.sick,
       taken: taken,
-      available: Math.max(0, 18 - taken), // Better to calculate as Total - Taken for UI consistency
+      available: employee.leaveBalance.casual + employee.leaveBalance.sick,
       pending: pendingCount
     };
 
@@ -115,6 +137,17 @@ const updateLeaveStatus = async (req, res) => {
     await employee.save();
     leave.status = status;
     await leave.save();
+
+    // Notify Employee
+    const isApproved = newStatus === 'approved';
+    await createNotification({
+        recipient: leave.employee,
+        title: isApproved ? 'Leave Approved' : 'Leave Update',
+        message: `Your leave request for ${leave.type} has been ${status}.`,
+        type: isApproved ? 'success' : 'alert',
+        icon: isApproved ? 'check_circle' : 'cancel',
+        route: '/dashboard/leaves'
+    });
 
     res.json({ success: true, data: leave });
   } catch (error) {
