@@ -112,4 +112,7 @@ EmployeeSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// Add index for common queries
+EmployeeSchema.index({ role: 1 });
+
 module.exports = mongoose.model('Employee', EmployeeSchema);

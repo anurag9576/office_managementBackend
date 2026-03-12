@@ -14,15 +14,15 @@ const {
 const { protect, authorize } = require('../../middleware/authMiddleware');
 
 router.get('/', protect, getAnnouncements);
-router.post('/', protect, authorize('Admin'), createAnnouncement);
-router.put('/:id', protect, authorize('Admin'), updateAnnouncement);
-router.delete('/:id', protect, authorize('Admin'), deleteAnnouncement);
+router.post('/', protect, authorize('Admin', 'HR Manager', 'Manager'), createAnnouncement);
+router.put('/:id', protect, authorize('Admin', 'HR Manager', 'Manager'), updateAnnouncement);
+router.delete('/:id', protect, authorize('Admin', 'HR Manager', 'Manager'), deleteAnnouncement);
 router.put('/:id/like', protect, toggleLike);
 
 // Comment routes
 router.post('/:id/comments', protect, addComment);
 router.delete('/:id/comments/:commentId', protect, deleteComment);
-router.put('/:id/comments/:commentId/flag', protect, authorize('Admin'), toggleFlagComment);
+router.put('/:id/comments/:commentId/flag', protect, authorize('Admin', 'HR Manager', 'Manager'), toggleFlagComment);
 
 // Poll routes
 router.put('/:id/vote', protect, voteAnnouncementPoll);

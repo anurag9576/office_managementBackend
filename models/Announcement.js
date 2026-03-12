@@ -69,4 +69,7 @@ const AnnouncementSchema = new mongoose.Schema({
   ],
 }, { timestamps: true });
 
+// Add index for faster sorting
+AnnouncementSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Announcement', AnnouncementSchema);

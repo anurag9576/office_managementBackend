@@ -38,17 +38,17 @@ const applyLeave = async (req, res) => {
     });
 
     // Notify Admins
+    // Notify Admins in parallel
     const admins = await Employee.find({ role: 'Admin' });
-    for (const admin of admins) {
-      await createNotification({
-        recipient: admin._id,
-        title: 'New Leave Request',
-        message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
-        type: 'request',
-        icon: 'event_busy',
-        route: '/dashboard/leaves-admin'
-      });
-    }
+    const notificationPromises = admins.map(admin => createNotification({
+      recipient: admin._id,
+      title: 'New Leave Request',
+      message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+      type: 'request',
+      icon: 'event_busy',
+      route: '/dashboard/leaves-admin'
+    }));
+    await Promise.all(notificationPromises);
 
     res.status(201).json({ success: true, data: leave });
   } catch (error) {

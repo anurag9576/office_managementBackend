@@ -1,5 +1,6 @@
 const Announcement = require('../../models/Announcement');
 const Employee = require('../../models/Employee');
+const Notification = require('../../models/Notification');
 const { createNotification } = require('../common/notificationController');
 
 // @desc    Get all announcements
@@ -8,7 +9,7 @@ const { createNotification } = require('../common/notificationController');
 const getAnnouncements = async (req, res) => {
   try {
     const announcements = await Announcement.find({})
-      .populate('author', 'firstName lastName avatar')
+      .populate('author', 'firstName lastName avatar role')
       .populate('comments.user', 'firstName lastName avatar')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: announcements.length, data: announcements });
@@ -33,20 +34,20 @@ const createAnnouncement = async (req, res) => {
       author: req.user._id,
     });
 
-    // Notify All Employees
+    // Notify All Employees in parallel for better performance
     const employees = await Employee.find({});
-    for (const emp of employees) {
-      if (emp._id.toString() !== req.user._id.toString()) { // Don't notify the author
-        await createNotification({
-          recipient: emp._id,
-          title: 'New Announcement',
-          message: title,
-          type: 'info',
-          icon: 'campaign',
-          route: '/dashboard/announcement'
-        });
-      }
-    }
+    const notificationPromises = employees
+      .filter(emp => emp._id.toString() !== req.user._id.toString())
+      .map(emp => createNotification({
+        recipient: emp._id,
+        title: 'New Announcement',
+        message: title,
+        type: 'info',
+        icon: 'campaign',
+        route: '/dashboard/announcement'
+      }));
+    
+    await Promise.all(notificationPromises);
 
     res.status(201).json({ success: true, data: announcement });
   } catch (error) {
@@ -166,8 +167,9 @@ const updateAnnouncement = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
     }
 
-    // Only allow Admin to update
-    if (req.user.role?.toLowerCase() !== 'admin') {
+    // Only allow Admin, HR, or Manager to update
+    const authorizedRoles = ['admin', 'hr manager', 'manager'];
+    if (!authorizedRoles.includes(req.user.role?.toLowerCase())) {
       return res.status(401).json({ success: false, message: 'Not authorized to update' });
     }
 
@@ -193,10 +195,18 @@ const deleteAnnouncement = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
     }
 
-    // Only allow Admin to delete
-    if (req.user.role?.toLowerCase() !== 'admin') {
+    // Only allow Admin, HR, or Manager to delete
+    const authorizedRoles = ['admin', 'hr manager', 'manager'];
+    if (!authorizedRoles.includes(req.user.role?.toLowerCase())) {
       return res.status(401).json({ success: false, message: 'Not authorized to delete' });
     }
+
+    // Delete related notifications
+    await Notification.deleteMany({
+      title: 'New Announcement',
+      message: announcement.title,
+      route: '/dashboard/announcement'
+    });
 
     await announcement.deleteOne();
 
