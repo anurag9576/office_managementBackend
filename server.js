@@ -20,11 +20,20 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Enable CORS with options
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    if (isLocalhost || process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    callback(null, true); // Fallback to allow during dev
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Dev logging middleware
