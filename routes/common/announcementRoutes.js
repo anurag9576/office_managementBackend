@@ -11,18 +11,18 @@ const {
     toggleFlagComment,
     voteAnnouncementPoll
 } = require('../../controllers/common/announcementController');
-const { protect, authorize } = require('../../middleware/authMiddleware');
+const { protect, authorize, checkPermission } = require('../../middleware/authMiddleware');
 
 router.get('/', protect, getAnnouncements);
-router.post('/', protect, authorize('Admin', 'HR Manager', 'Manager'), createAnnouncement);
-router.put('/:id', protect, authorize('Admin', 'HR Manager', 'Manager'), updateAnnouncement);
-router.delete('/:id', protect, authorize('Admin', 'HR Manager', 'Manager'), deleteAnnouncement);
+router.post('/', protect, checkPermission('announcement'), createAnnouncement);
+router.put('/:id', protect, checkPermission('announcement'), updateAnnouncement);
+router.delete('/:id', protect, checkPermission('announcement'), deleteAnnouncement);
 router.put('/:id/like', protect, toggleLike);
 
 // Comment routes
 router.post('/:id/comments', protect, addComment);
 router.delete('/:id/comments/:commentId', protect, deleteComment);
-router.put('/:id/comments/:commentId/flag', protect, authorize('Admin', 'HR Manager', 'Manager'), toggleFlagComment);
+router.put('/:id/comments/:commentId/flag', protect, checkPermission('announcement'), toggleFlagComment);
 
 // Poll routes
 router.put('/:id/vote', protect, voteAnnouncementPoll);

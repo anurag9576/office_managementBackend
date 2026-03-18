@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { getRoles, upsertRole, getRolePermissions, deleteRole } = require('../../controllers/admin/roleController');
-const { protect, authorize } = require('../../middleware/authMiddleware');
+const { protect, authorize, checkPermission } = require('../../middleware/authMiddleware');
 
 router.use(protect);
 
 router.route('/')
-  .get(authorize('Admin'), getRoles)
-  .post(authorize('Admin'), upsertRole);
+  .get(checkPermission('roles'), getRoles)
+  .post(checkPermission('roles'), upsertRole);
 
-router.delete('/:id', authorize('Admin'), deleteRole);
+router.delete('/:id', checkPermission('roles'), deleteRole);
 
 router.get('/:name', getRolePermissions);
 

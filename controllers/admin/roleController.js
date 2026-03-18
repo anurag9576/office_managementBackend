@@ -95,8 +95,9 @@ const deleteRole = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Role not found' });
     }
 
-    if (role.isSystemRole) {
-      return res.status(400).json({ success: false, message: 'System roles cannot be deleted' });
+    const protectedRoles = ['Admin', 'Employee'];
+    if (protectedRoles.includes(role.name)) {
+      return res.status(400).json({ success: false, message: 'System roles (Admin/Employee) cannot be deleted' });
     }
 
     await role.deleteOne();
