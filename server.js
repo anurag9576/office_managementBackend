@@ -54,6 +54,7 @@ const leaveRoutes = require('./routes/employee/leaveRoutes');
 const payrollRoutes = require('./routes/employee/payrollRoutes');
 const notificationRoutes = require('./routes/common/notificationRoutes');
 const roleRoutes = require('./routes/admin/roleRoutes');
+const timesheetRoutes = require('./routes/timesheetRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -64,6 +65,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/timesheets', timesheetRoutes);
 
 // Simple Welcome Route
 app.get('/', (req, res) => {
