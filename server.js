@@ -15,6 +15,10 @@ require('./scripts/payrollScheduler');
 console.log('--- AUTO-PAYROLL SCHEDULER ACTIVE ---');
 
 const app = express();
+const path = require('path');
+
+// Static folders
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));
