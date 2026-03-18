@@ -38,6 +38,7 @@ const registerEmployee = async (req, res) => {
           lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
+          avatar: employee.avatar,
           token: generateToken(employee._id),
         },
       });
@@ -66,6 +67,7 @@ const loginEmployee = async (req, res) => {
           lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
+          avatar: employee.avatar,
           token: generateToken(employee._id),
         },
       });
@@ -77,4 +79,28 @@ const loginEmployee = async (req, res) => {
   }
 };
 
-module.exports = { registerEmployee, loginEmployee };
+// @desc    Change password
+// @route   PUT /api/auth/change-password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const employee = await Employee.findById(req.user.id);
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    employee.password = newPassword;
+    await employee.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+module.exports = { registerEmployee, loginEmployee, changePassword };
