@@ -39,6 +39,7 @@ const registerEmployee = async (req, res) => {
           email: employee.email,
           role: employee.role,
           avatar: employee.avatar,
+          passwordChanged: employee.passwordChanged,
           token: generateToken(employee._id),
         },
       });
@@ -68,6 +69,7 @@ const loginEmployee = async (req, res) => {
           email: employee.email,
           role: employee.role,
           avatar: employee.avatar,
+          passwordChanged: employee.passwordChanged,
           token: generateToken(employee._id),
         },
       });
@@ -92,6 +94,7 @@ const changePassword = async (req, res) => {
     }
 
     employee.password = newPassword;
+    employee.passwordChanged = true;
     await employee.save();
 
     res.json({

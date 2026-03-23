@@ -35,7 +35,7 @@ const updateEmployee = async (req, res) => {
   try {
     // Check if user is Admin OR if they are updating their OWN profile
     const isSelfUpdate = req.user._id.toString() === req.params.id;
-    const isAdmin = req.user.role === 'Admin';
+    const isAdmin = req.user.role?.toLowerCase() === 'admin';
 
     if (!isAdmin && !isSelfUpdate) {
       return res.status(403).json({ 
@@ -56,16 +56,29 @@ const updateEmployee = async (req, res) => {
       delete updateData.password; // Should have a separate change-password route
     }
 
-    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    });
-    
-    if (updatedEmployee) {
-      res.json({ success: true, data: updatedEmployee });
-    } else {
-      res.status(404).json({ success: false, message: 'Employee not found' });
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
     }
+
+    // Update password if provided
+    if (updateData.password) {
+      employee.password = updateData.password;
+      employee.passwordChanged = false; // Reset so they are forced to change it again? 
+      // User requested "pop show hona chiya create new password only 1st time". 
+      // If admin changes it, it's effectively like a new password.
+    }
+
+    // Update other fields
+    Object.keys(updateData).forEach(key => {
+      if (key !== 'password') {
+        employee[key] = updateData[key];
+      }
+    });
+
+    const updatedEmployee = await employee.save();
+    
+    res.json({ success: true, data: updatedEmployee });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
