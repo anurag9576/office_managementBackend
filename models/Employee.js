@@ -96,6 +96,10 @@ const EmployeeSchema = new mongoose.Schema({
     netAmount: { type: Number, default: 0 },
     isAutoGenerate: { type: Boolean, default: true }
   },
+  passwordChanged: {
+    type: Boolean,
+    default: false,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

@@ -32,7 +32,8 @@ const seedData = async () => {
       role: 'Admin',
       designation: 'Administrator',
       department: itDept._id,
-      status: 'Active'
+      status: 'Active',
+      passwordChanged: true,
     });
 
     console.log('Seed data added successfully!');
