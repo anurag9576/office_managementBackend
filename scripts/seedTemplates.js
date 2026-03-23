@@ -1,44 +1,18 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const Employee = require('../models/Employee');
-const Department = require('../models/Department');
+const DocumentTemplate = require('../models/DocumentTemplate');
 
-dotenv.config();
+const path = require('path');
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const seedData = async () => {
+const seedTemplates = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB Connected for seeding to office-management...');
+    console.log('MongoDB Connected for seeding templates...');
 
-    // Clear existing data
-    await Employee.deleteMany();
-    await Department.deleteMany();
-
-    // 1. Create Department
-    const itDept = await Department.create({
-      name: 'IT Department',
-      description: 'Infrastructure and support'
-    });
-
-    console.log('Department created.');
-
-    // 2. Create Admin
-    await Employee.create({
-      firstName: 'Admin',
-      lastName: 'User', 
-      email: 'admin@hamsa.com',
-      password: 'Test@123',
-      employeeId: 'ADM001',
-      role: 'Admin',
-      designation: 'Administrator',
-      department: itDept._id,
-      status: 'Active',
-      passwordChanged: true,
-    });
-
-    // 3. Create Document Templates
-    const DocumentTemplate = require('../models/DocumentTemplate');
+    // Only delete templates, not employees
     await DocumentTemplate.deleteMany();
+
     await DocumentTemplate.create([
       {
         name: 'Experience Letter',
@@ -54,11 +28,7 @@ const seedData = async () => {
       }
     ]);
 
-    console.log('Document templates seeded.');
-
-    console.log('Seed data added successfully!');
-    console.log('Admin: admin@hamsa.com / Test@123');
-
+    console.log('Document templates seeded successfully!');
     process.exit();
   } catch (error) {
     console.error(`Error: ${error.message}`);
@@ -66,4 +36,4 @@ const seedData = async () => {
   }
 };
 
-seedData();
+seedTemplates();
