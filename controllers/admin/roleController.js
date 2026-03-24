@@ -12,7 +12,7 @@ const getRoles = async (req, res) => {
       const defaultRoles = [
         { 
           name: 'Admin', 
-          permissions: ['dashboard', 'employees', 'roles', 'attendance', 'leaves-admin', 'payroll-admin', 'tasks', 'reports', 'announcement', 'settings'],
+          permissions: ['dashboard', 'employees', 'roles', 'leaves-admin', 'payroll-admin', 'tasks', 'reports', 'announcement', 'settings'],
           isSystemRole: true 
         },
         { 
@@ -22,7 +22,7 @@ const getRoles = async (req, res) => {
         },
         { 
           name: 'HR Manager', 
-          permissions: ['dashboard', 'employees', 'attendance', 'leaves-admin', 'announcement'],
+          permissions: ['dashboard', 'employees', 'leaves-admin', 'announcement'],
           isSystemRole: false 
         },
         { 
@@ -37,7 +37,7 @@ const getRoles = async (req, res) => {
         },
         { 
           name: 'Manager', 
-          permissions: ['dashboard', 'attendance', 'leaves-admin', 'announcement', 'tasks', 'profile', 'help'],
+          permissions: ['dashboard', 'leaves-admin', 'announcement', 'tasks', 'profile', 'help'],
           isSystemRole: false 
         },
         { 

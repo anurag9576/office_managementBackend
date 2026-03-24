@@ -71,8 +71,8 @@ const issueDocument = async (req, res) => {
     // Notify employee
     await Notification.create({
       recipient: employee._id,
-      title: requestId ? 'Document Request Approved' : 'Document Issued',
-      message: requestId ? `Your request for ${template.title} has been approved and issued.` : `Admin has issued your ${template.title}.`,
+      title: 'Document Issued',
+      message: `Admin has issued your ${template.title}.`,
       type: 'success',
       icon: 'description',
       route: '/dashboard/profile'
@@ -195,21 +195,7 @@ const getAllRequests = async (req, res) => {
 const updateRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const request = await DocumentRequest.findByIdAndUpdate(req.params.id, { status }, { new: true })
-      .populate('template', 'title');
-
-    if (status === 'Rejected') {
-      const docName = request.template ? request.template.title : request.customDocumentName;
-      await Notification.create({
-        recipient: request.employee,
-        title: 'Document Request Rejected',
-        message: `Your request for ${docName} was rejected by Admin.`,
-        type: 'alert',
-        icon: 'cancel',
-        route: '/dashboard/profile'
-      });
-    }
-
+    const request = await DocumentRequest.findByIdAndUpdate(req.params.id, { status }, { new: true });
     res.json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

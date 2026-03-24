@@ -6,7 +6,7 @@ const {
     updateTimesheet, 
     deleteTimesheet, 
     getAllTimesheets 
-} = require('../controllers/timesheetController');
+} = require('../controllers/admin/timesheetController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.route('/')
