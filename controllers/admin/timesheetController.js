@@ -1,4 +1,4 @@
-const Timesheet = require('../models/Timesheet');
+const Timesheet = require('../../models/Timesheet');
 
 // @desc    Get all timesheets for logged in employee
 // @route   GET /api/timesheets/my
