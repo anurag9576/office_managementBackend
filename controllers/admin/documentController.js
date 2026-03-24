@@ -195,7 +195,33 @@ const getAllRequests = async (req, res) => {
 const updateRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const request = await DocumentRequest.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    
+    const request = await DocumentRequest.findById(req.params.id).populate('template', 'title');
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    request.status = status;
+    await request.save();
+
+    // Notify employee about rejection or approval (if not already notified via issueDocument)
+    if (status === 'Rejected' || status === 'Approved') {
+      const docName = request.template ? request.template.title : (request.customDocumentName || 'Document');
+      const title = status === 'Rejected' ? 'Document Request Rejected' : 'Document Request Approved';
+      const message = status === 'Rejected' 
+        ? `Your request for ${docName} has been rejected by the admin.` 
+        : `Your request for ${docName} has been approved.`;
+      
+      await Notification.create({
+        recipient: request.employee,
+        title,
+        message,
+        type: status === 'Rejected' ? 'alert' : 'success',
+        icon: status === 'Rejected' ? 'error' : 'check_circle',
+        route: '/dashboard/profile'
+      });
+    }
+
     res.json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

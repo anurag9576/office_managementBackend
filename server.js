@@ -42,7 +42,11 @@ app.use(cors({
 
 // Dev logging middleware
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+  // app.use(morgan('dev'));
+  // Skip logging for notifications to reduce noise
+  app.use(morgan('dev', {
+    skip: (req, res) => req.originalUrl === '/api/notifications'
+  }));
 }
 
 // Route files
