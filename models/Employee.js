@@ -29,7 +29,6 @@ const EmployeeSchema = new mongoose.Schema({
   },
   employeeId: {
     type: String,
-    required: [true, 'Employee ID is required'],
     unique: true,
   },
   role: {
@@ -102,13 +101,38 @@ const EmployeeSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// Hash password before saving
-EmployeeSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
-    return;
+// Hash password and Generate Employee ID before saving
+EmployeeSchema.pre('save', async function (next) {
+  // Hash password
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+
+  // Generate Employee ID (HHPL 01, HHPL 02...)
+  if (!this.employeeId) {
+    try {
+      const lastEmployee = await this.constructor.findOne(
+        { employeeId: /^HHPL \d+/ },
+        { employeeId: 1 },
+        { sort: { employeeId: -1 } }
+      );
+
+      let nextIdNumber = 1;
+      if (lastEmployee && lastEmployee.employeeId) {
+        const lastIdStr = lastEmployee.employeeId.replace('HHPL ', '');
+        const lastIdNum = parseInt(lastIdStr, 10);
+        if (!isNaN(lastIdNum)) {
+          nextIdNumber = lastIdNum + 1;
+        }
+      }
+      const formattedNumber = nextIdNumber < 10 ? `0${nextIdNumber}` : nextIdNumber;
+      this.employeeId = `HHPL ${formattedNumber}`;
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
 });
 
 // Match password method
