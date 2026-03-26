@@ -57,9 +57,15 @@ const registerEmployee = async (req, res) => {
 const loginEmployee = async (req, res) => {
   try {
     const { email, password } = req.body;
+    // Select everything EXCEPT heavy fields like avatar unless absolutely necessary
     const employee = await Employee.findOne({ email }).select('+password');
 
     if (employee && (await employee.matchPassword(password))) {
+      // Agar avatar bahut bada hai (jaise 499 KB), toh isko return mat karo warna login slow ho jayega.
+      const avatarData = (employee.avatar && employee.avatar.length > 50000) 
+        ? null // Payload size ko kam rakhne ke liye base64 remove kar diya
+        : employee.avatar;
+
       res.json({
         success: true,
         data: {
@@ -68,7 +74,7 @@ const loginEmployee = async (req, res) => {
           lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
-          avatar: employee.avatar,
+          avatar: avatarData,
           passwordChanged: employee.passwordChanged,
           token: generateToken(employee._id),
         },

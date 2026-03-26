@@ -9,10 +9,21 @@ const { createNotification } = require('../common/notificationController');
 const getAnnouncements = async (req, res) => {
   try {
     const announcements = await Announcement.find({})
-      .populate('author', 'firstName lastName avatar role')
-      .populate('comments.user', 'firstName lastName avatar')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, count: announcements.length, data: announcements });
+      .populate('author', 'firstName lastName role')
+      .populate('comments.user', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    // Content truncation: Agar content bahut bada hai toh list view mein truncate karein
+    const optimizedAnnouncements = announcements.map(ann => {
+        if (ann.content && ann.content.length > 1000) {
+            ann.content = ann.content.substring(0, 1000) + '... (Read More)';
+        }
+        return ann;
+    });
+
+    res.json({ success: true, count: optimizedAnnouncements.length, data: optimizedAnnouncements });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

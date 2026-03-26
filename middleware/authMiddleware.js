@@ -13,7 +13,9 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await Employee.findById(decoded.id).select('-password');
+      
+      // Select only essential fields to keep every request fast
+      req.user = await Employee.findById(decoded.id).select('firstName lastName role designation email employeeId');
       next();
     } catch (error) {
       console.error(error);

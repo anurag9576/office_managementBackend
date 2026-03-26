@@ -5,7 +5,11 @@ const Employee = require('../../models/Employee');
 // @access  Private/Admin
 const getEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({}).populate('department', 'name');
+    const employees = await Employee.find({})
+      .select('firstName lastName email role designation status employeeId joiningDate profileImage')
+      .populate('department', 'name')
+      .lean();
+    
     res.json({ success: true, count: employees.length, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -17,7 +21,10 @@ const getEmployees = async (req, res) => {
 // @access  Private
 const getEmployeeById = async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id).populate('department', 'name');
+    const employee = await Employee.findById(req.params.id)
+      .populate('department', 'name')
+      .lean();
+      
     if (employee) {
       res.json({ success: true, data: employee });
     } else {
@@ -33,7 +40,6 @@ const getEmployeeById = async (req, res) => {
 // @access  Private
 const updateEmployee = async (req, res) => {
   try {
-    // Check if user is Admin OR if they are updating their OWN profile
     const isSelfUpdate = req.user._id.toString() === req.params.id;
     const isAdmin = req.user.role?.toLowerCase() === 'admin';
 
@@ -46,7 +52,13 @@ const updateEmployee = async (req, res) => {
 
     let updateData = { ...req.body };
 
-    // If it's NOT an Admin, then strip sensitive fields to prevent privilege escalation
+    if (updateData.avatar && updateData.avatar.length > 350000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is too large! Please upload an image smaller than 250KB.'
+      });
+    }
+
     if (!isAdmin) {
       delete updateData.role;
       delete updateData.salary; // (if added in the future)
@@ -61,17 +73,14 @@ const updateEmployee = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Hash password if provided manually since we are moving away from .save() for simple updates
-    // to avoid pre-save hook complexities
     if (updateData.password) {
       const bcrypt = require('bcryptjs');
       const salt = await bcrypt.getSalt(10);
       updateData.password = await bcrypt.hash(updateData.password, salt);
     } else {
-      delete updateData.password; // Don't overwrite with empty/null
+      delete updateData.password;
     }
 
-    // Safety: Remove _id from updateData if it exists
     delete updateData._id;
     delete updateData.__v;
 
