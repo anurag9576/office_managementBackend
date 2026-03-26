@@ -61,26 +61,34 @@ const updateEmployee = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Update password if provided
+    // Hash password if provided manually since we are moving away from .save() for simple updates
+    // to avoid pre-save hook complexities
     if (updateData.password) {
-      employee.password = updateData.password;
-      employee.passwordChanged = false; // Reset so they are forced to change it again? 
-      // User requested "pop show hona chiya create new password only 1st time". 
-      // If admin changes it, it's effectively like a new password.
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.getSalt(10);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    } else {
+      delete updateData.password; // Don't overwrite with empty/null
     }
 
-    // Update other fields
-    Object.keys(updateData).forEach(key => {
-      if (key !== 'password') {
-        employee[key] = updateData[key];
-      }
-    });
+    // Safety: Remove _id from updateData if it exists
+    delete updateData._id;
+    delete updateData.__v;
 
-    const updatedEmployee = await employee.save();
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
     
     res.json({ success: true, data: updatedEmployee });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Update Employee Error Details:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      message: 'Failed to update employee profile'
+    });
   }
 };
 

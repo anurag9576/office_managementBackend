@@ -5,12 +5,9 @@ const { protect, authorize, checkPermission } = require('../../middleware/authMi
 
 router.use(protect);
 
-router.route('/')
-  .get(checkPermission('roles'), getRoles)
-  .post(checkPermission('roles'), upsertRole);
-
+router.get('/', checkPermission('roles'), getRoles);
+router.post('/', checkPermission('roles'), upsertRole);
 router.delete('/:id', checkPermission('roles'), deleteRole);
-
 router.get('/:name', getRolePermissions);
 
 module.exports = router;
