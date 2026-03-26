@@ -63,7 +63,8 @@ const getMyLeaves = async (req, res) => {
   try {
     const leaves = await Leave.find({ employee: req.user._id }).sort('-startDate');
     
-    let employee = await Employee.findById(req.user._id);
+    // Select ONLY leaveBalance for performance
+    let employee = await Employee.findById(req.user._id).select('leaveBalance');
 
     // Initialize balance if missing (for existing users)
     if (!employee.leaveBalance || !employee.leaveBalance.casual) {
