@@ -109,4 +109,32 @@ const deleteEmployee = async (req, res) => {
   }
 };
 
-module.exports = { getEmployees, getEmployeeById, updateEmployee, deleteEmployee };
+// @desc    Get next employee ID
+// @route   GET /api/employees/next-id
+// @access  Private/Admin
+const getNextEmployeeId = async (req, res) => {
+  try {
+    const lastEmployee = await Employee.findOne(
+      { employeeId: /^HHPL \d+/ },
+      { employeeId: 1 },
+      { sort: { employeeId: -1 } }
+    );
+
+    let nextIdNumber = 1;
+    if (lastEmployee && lastEmployee.employeeId) {
+      const lastIdStr = lastEmployee.employeeId.replace('HHPL ', '');
+      const lastIdNum = parseInt(lastIdStr, 10);
+      if (!isNaN(lastIdNum)) {
+        nextIdNumber = lastIdNum + 1;
+      }
+    }
+    const formattedNumber = nextIdNumber < 10 ? `0${nextIdNumber}` : nextIdNumber;
+    const nextId = `HHPL ${formattedNumber}`;
+    
+    res.json({ success: true, nextId });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+module.exports = { getEmployees, getEmployeeById, updateEmployee, deleteEmployee, getNextEmployeeId };
