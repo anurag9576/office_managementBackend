@@ -1,4 +1,5 @@
 const Employee = require('../../models/Employee');
+const cloudinary = require('../../config/cloudinary');
 
 // @desc    Get all employees
 // @route   GET /api/employees
@@ -6,7 +7,7 @@ const Employee = require('../../models/Employee');
 const getEmployees = async (req, res) => {
   try {
     const employees = await Employee.find({})
-      .select('firstName lastName email role designation status employeeId joiningDate profileImage')
+      .select('firstName lastName email role designation status employeeId joiningDate avatar')
       .populate('department', 'name')
       .lean();
     
@@ -50,13 +51,45 @@ const updateEmployee = async (req, res) => {
       });
     }
 
+    console.log('Update Request Body Keys:', Object.keys(req.body));
     let updateData = { ...req.body };
 
-    if (updateData.avatar && updateData.avatar.length > 350000) {
+    // Handle profileImage as an alias for avatar if needed
+    if (updateData.profileImage && !updateData.avatar) {
+      updateData.avatar = updateData.profileImage;
+    }
+
+    if (updateData.avatar && updateData.avatar.length > 7000000) { // Approx 5MB binary
       return res.status(400).json({
         success: false,
-        message: 'Image is too large! Please upload an image smaller than 250KB.'
+        message: 'Image is too large! Please upload a file smaller than 5MB.'
       });
+    }
+
+    if (updateData.avatar && updateData.avatar.startsWith('data:image')) {
+      try {
+        console.log('Uploading image to Cloudinary...');
+        const uploadResponse = await cloudinary.uploader.upload(updateData.avatar, {
+          folder: 'office-management/avatars',
+          // Optimize image on upload
+          transformation: [
+            { width: 500, height: 500, crop: 'limit' }, // Resize if larger than 500x500
+            { quality: 'auto' }, // Automatic compression
+            { fetch_format: 'auto' } // Automatic format (webp/avif)
+          ]
+        });
+        console.log('Cloudinary Upload Success:', uploadResponse.secure_url);
+        updateData.avatar = uploadResponse.secure_url;
+        // Ensure we remove profileImage from updateData if it was there to avoid confusion
+        delete updateData.profileImage;
+      } catch (uploadError) {
+        console.error('Cloudinary Upload Error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Image upload failed',
+          error: uploadError.message
+        });
+      }
     }
 
     if (!isAdmin) {
@@ -68,7 +101,7 @@ const updateEmployee = async (req, res) => {
       delete updateData.password; // Should have a separate change-password route
     }
 
-    const employee = await Employee.findById(req.params.id);
+    const employee = await Employee.findById(req.params.id).select('-avatar');
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }

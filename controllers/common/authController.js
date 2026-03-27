@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Employee = require('../../models/Employee');
+const cloudinary = require('../../config/cloudinary');
 
 // Generate Token
 const generateToken = (id) => {
@@ -18,6 +19,26 @@ const registerEmployee = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Employee already exists' });
     }
 
+    let avatarUrl = req.body.avatar || req.body.profileImage;
+
+    if (avatarUrl && avatarUrl.length > 7000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is too large! Please upload a file smaller than 5MB.'
+      });
+    }
+
+    if (avatarUrl && avatarUrl.startsWith('data:image')) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(avatarUrl, {
+          folder: 'office-management/avatars',
+        });
+        avatarUrl = uploadResponse.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary Registration Upload Error:', uploadError);
+      }
+    }
+
     const employee = await Employee.create({
       firstName,
       lastName,
@@ -27,6 +48,7 @@ const registerEmployee = async (req, res) => {
       role,
       designation,
       department,
+      avatar: avatarUrl
     });
 
     if (employee) {
@@ -61,11 +83,6 @@ const loginEmployee = async (req, res) => {
     const employee = await Employee.findOne({ email }).select('+password');
 
     if (employee && (await employee.matchPassword(password))) {
-      // Agar avatar bahut bada hai (jaise 499 KB), toh isko return mat karo warna login slow ho jayega.
-      const avatarData = (employee.avatar && employee.avatar.length > 50000) 
-        ? null // Payload size ko kam rakhne ke liye base64 remove kar diya
-        : employee.avatar;
-
       res.json({
         success: true,
         data: {
@@ -74,7 +91,7 @@ const loginEmployee = async (req, res) => {
           lastName: employee.lastName,
           email: employee.email,
           role: employee.role,
-          avatar: avatarData,
+          avatar: employee.avatar,
           passwordChanged: employee.passwordChanged,
           token: generateToken(employee._id),
         },
