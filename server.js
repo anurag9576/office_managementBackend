@@ -61,6 +61,7 @@ const roleRoutes = require('./routes/admin/roleRoutes');
 const timesheetRoutes = require('./routes/common/timesheetRoutes');
 const documentRoutes = require('./routes/common/documentRoutes');
 const holidayRoutes = require('./routes/admin/holidayRoutes');
+const uploadRoutes = require('./routes/common/uploadRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -74,6 +75,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/holidays', holidayRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Simple Welcome Route
 app.get('/', (req, res) => {

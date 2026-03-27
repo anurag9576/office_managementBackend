@@ -1,5 +1,6 @@
 const Payroll = require('../../models/Payroll');
 const Employee = require('../../models/Employee');
+const cloudinary = require('../../config/cloudinary');
 
 // @desc    Get my payroll records
 // @route   GET /api/payroll/my-payrolls
@@ -79,6 +80,27 @@ const generatePayroll = async (req, res) => {
       finalPaymentDate = new Date(); 
     }
 
+    let finalPdfUrl = pdfUrl || '';
+    
+    if (finalPdfUrl && finalPdfUrl.length > 7000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'PDF is too large! Please upload a file smaller than 5MB.'
+      });
+    }
+
+    if (finalPdfUrl && finalPdfUrl.startsWith('data:application/pdf')) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(finalPdfUrl, {
+          folder: 'office-management/payroll',
+          resource_type: 'auto',
+        });
+        finalPdfUrl = uploadResponse.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary Payroll Upload Error:', uploadError);
+      }
+    }
+
     let payroll = await Payroll.create({
       employee: targetEmployee._id,
       month,
@@ -95,7 +117,7 @@ const generatePayroll = async (req, res) => {
       totalDays: req.body.totalDays || 30,
       earnings: earnings || [],
       deductionsList: deductionsList || [],
-      pdfUrl: pdfUrl || ''
+      pdfUrl: finalPdfUrl
     });
 
     // Save this as the "Base Salary Structure" for the employee for auto-generation
@@ -122,7 +144,7 @@ const generatePayroll = async (req, res) => {
 // @access  Private/Admin
 const updatePayroll = async (req, res) => {
   try {
-    const payroll = await Payroll.findById(req.params.id);
+    const payroll = await Payroll.findById(req.params.id).select('-pdfUrl');
     if (!payroll) {
       return res.status(404).json({ success: false, message: 'Payroll record not found' });
     }
@@ -140,7 +162,28 @@ const updatePayroll = async (req, res) => {
       req.body.netAmount = Number(grossAmount) + totalEarnings - totalDeductions;
     }
 
-    const updatedPayroll = await Payroll.findByIdAndUpdate(req.params.id, req.body, {
+    let updateData = { ...req.body };
+
+    if (updateData.pdfUrl && updateData.pdfUrl.length > 7000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'PDF is too large! Please upload a file smaller than 5MB.'
+      });
+    }
+
+    if (updateData.pdfUrl && updateData.pdfUrl.startsWith('data:application/pdf')) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(updateData.pdfUrl, {
+          folder: 'office-management/payroll',
+          resource_type: 'auto',
+        });
+        updateData.pdfUrl = uploadResponse.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary Payroll Update Error:', uploadError);
+      }
+    }
+
+    const updatedPayroll = await Payroll.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     }).populate('employee', 'firstName lastName email employeeId');

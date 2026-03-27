@@ -2,6 +2,7 @@ const Announcement = require('../../models/Announcement');
 const Employee = require('../../models/Employee');
 const Notification = require('../../models/Notification');
 const { createNotification } = require('../common/notificationController');
+const cloudinary = require('../../config/cloudinary');
 
 // @desc    Get all announcements
 // @route   GET /api/announcements
@@ -35,12 +36,31 @@ const getAnnouncements = async (req, res) => {
 const createAnnouncement = async (req, res) => {
   try {
     const { title, content, type, imageUrl, pollOptions } = req.body;
+    let finalImageUrl = imageUrl;
     
+    if (finalImageUrl && finalImageUrl.length > 7000000) { // Approx 5MB in Base64
+      return res.status(400).json({
+        success: false,
+        message: 'Image is too large! Please upload an image smaller than 5MB.'
+      });
+    }
+
+    if (finalImageUrl && finalImageUrl.startsWith('data:image')) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(finalImageUrl, {
+          folder: 'office-management/announcements',
+        });
+        finalImageUrl = uploadResponse.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary Announcement Upload Error:', uploadError);
+      }
+    }
+
     const announcement = await Announcement.create({
       title,
       content,
       type,
-      imageUrl,
+      imageUrl: finalImageUrl,
       pollOptions: pollOptions || [],
       author: req.user._id,
     });
@@ -173,7 +193,7 @@ const toggleFlagComment = async (req, res) => {
 // @access  Private/Admin
 const updateAnnouncement = async (req, res) => {
   try {
-    let announcement = await Announcement.findById(req.params.id);
+    let announcement = await Announcement.findById(req.params.id).select('-imageUrl');
     if (!announcement) {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
     }
@@ -184,7 +204,27 @@ const updateAnnouncement = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized to update' });
     }
 
-    announcement = await Announcement.findByIdAndUpdate(req.params.id, req.body, {
+    let updateData = { ...req.body };
+    
+    if (updateData.imageUrl && updateData.imageUrl.length > 7000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is too large! Please upload an image smaller than 5MB.'
+      });
+    }
+
+    if (updateData.imageUrl && updateData.imageUrl.startsWith('data:image')) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(updateData.imageUrl, {
+          folder: 'office-management/announcements',
+        });
+        updateData.imageUrl = uploadResponse.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary Announcement Update Error:', uploadError);
+      }
+    }
+
+    announcement = await Announcement.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     });
