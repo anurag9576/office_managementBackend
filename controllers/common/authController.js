@@ -83,6 +83,13 @@ const loginEmployee = async (req, res) => {
     const employee = await Employee.findOne({ email }).select('+password');
 
     if (employee && (await employee.matchPassword(password))) {
+      if (employee.status === 'Terminated') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been deactivated. Access denied.'
+        });
+      }
+
       res.json({
         success: true,
         data: {

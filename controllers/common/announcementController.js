@@ -3,6 +3,7 @@ const Employee = require('../../models/Employee');
 const Notification = require('../../models/Notification');
 const { createNotification } = require('../common/notificationController');
 const cloudinary = require('../../config/cloudinary');
+const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 
 // @desc    Get all announcements
 // @route   GET /api/announcements
@@ -193,7 +194,7 @@ const toggleFlagComment = async (req, res) => {
 // @access  Private/Admin
 const updateAnnouncement = async (req, res) => {
   try {
-    let announcement = await Announcement.findById(req.params.id).select('-imageUrl');
+    let announcement = await Announcement.findById(req.params.id);
     if (!announcement) {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
     }
@@ -213,14 +214,29 @@ const updateAnnouncement = async (req, res) => {
       });
     }
 
-    if (updateData.imageUrl && updateData.imageUrl.startsWith('data:image')) {
-      try {
-        const uploadResponse = await cloudinary.uploader.upload(updateData.imageUrl, {
-          folder: 'office-management/announcements',
-        });
-        updateData.imageUrl = uploadResponse.secure_url;
-      } catch (uploadError) {
-        console.error('Cloudinary Announcement Update Error:', uploadError);
+    if (updateData.imageUrl && updateData.imageUrl !== announcement.imageUrl) {
+      let oldImageUrl = announcement.imageUrl;
+      let isReadyToDelete = false;
+
+      if (updateData.imageUrl.startsWith('data:image')) {
+        try {
+          const uploadResponse = await cloudinary.uploader.upload(updateData.imageUrl, {
+            folder: 'office-management/announcements',
+          });
+          updateData.imageUrl = uploadResponse.secure_url;
+          isReadyToDelete = true;
+        } catch (uploadError) {
+          console.error('Cloudinary Announcement Update Error:', uploadError);
+          isReadyToDelete = false;
+        }
+      } else if (updateData.imageUrl.includes('cloudinary.com')) {
+        // It's a new Cloudinary URL (likely from direct upload API)
+        isReadyToDelete = true;
+      }
+
+      // Delete old image only if the new one is confirmed
+      if (isReadyToDelete && oldImageUrl) {
+        await deleteFromCloudinary(oldImageUrl);
       }
     }
 
@@ -258,6 +274,11 @@ const deleteAnnouncement = async (req, res) => {
       message: announcement.title,
       route: '/dashboard/announcement'
     });
+
+    // Delete image from Cloudinary
+    if (announcement.imageUrl) {
+      await deleteFromCloudinary(announcement.imageUrl);
+    }
 
     await announcement.deleteOne();
 
