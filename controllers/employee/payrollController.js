@@ -1,13 +1,10 @@
 const Payroll = require('../../models/Payroll');
 const Employee = require('../../models/Employee');
 const cloudinary = require('../../config/cloudinary');
+const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 
-// @desc    Get my payroll records
-// @route   GET /api/payroll/my-payrolls
-// @access  Private
 const getMyPayrolls = async (req, res) => {
   try {
-    // Only fetch payrolls where paymentDate <= current date/time
     const payrolls = await Payroll.find({ 
       employee: req.user._id,
       paymentDate: { $lte: new Date() }
@@ -18,9 +15,6 @@ const getMyPayrolls = async (req, res) => {
   }
 };
 
-// @desc    Get all payroll records (Admin)
-// @route   GET /api/payroll
-// @access  Private/Admin
 const getAllPayrolls = async (req, res) => {
   try {
     const payrolls = await Payroll.find().populate('employee', 'firstName lastName email employeeId').sort('-paymentDate');
@@ -30,9 +24,6 @@ const getAllPayrolls = async (req, res) => {
   }
 };
 
-// @desc    Generate payroll for an employee
-// @route   POST /api/payroll
-// @access  Private/Admin
 const generatePayroll = async (req, res) => {
   try {
     const { 
@@ -51,11 +42,9 @@ const generatePayroll = async (req, res) => {
 
     let targetEmployee;
 
-    // Find employee by email or employeeId
     if (email) {
       targetEmployee = await Employee.findOne({ email });
     } else if (employeeId) {
-      // Try finding by custom employeeId string or MongoDB ID
       targetEmployee = await Employee.findOne({ employeeId }) || await Employee.findById(employeeId);
     }
 
@@ -70,12 +59,11 @@ const generatePayroll = async (req, res) => {
     const totalDeductions = (deductionsList || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const netAmount = Number(grossAmount) + totalEarnings - totalDeductions;
 
-    // Force paymentDate to the end of the selected month
     let finalPaymentDate;
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const monthIndex = monthNames.indexOf(month);
     if (monthIndex !== -1) {
-      finalPaymentDate = new Date(year, monthIndex + 1, 0); // Sets to last day
+      finalPaymentDate = new Date(year, monthIndex + 1, 0);
     } else {
       finalPaymentDate = new Date(); 
     }
@@ -120,7 +108,6 @@ const generatePayroll = async (req, res) => {
       pdfUrl: finalPdfUrl
     });
 
-    // Save this as the "Base Salary Structure" for the employee for auto-generation
     targetEmployee.salaryStructure = {
       earnings: earnings || [],
       deductionsList: deductionsList || [],
@@ -139,17 +126,13 @@ const generatePayroll = async (req, res) => {
   }
 };
 
-// @desc    Update payroll record
-// @route   PUT /api/payroll/:id
-// @access  Private/Admin
 const updatePayroll = async (req, res) => {
   try {
-    const payroll = await Payroll.findById(req.params.id).select('-pdfUrl');
+    const payroll = await Payroll.findById(req.params.id);
     if (!payroll) {
       return res.status(404).json({ success: false, message: 'Payroll record not found' });
     }
 
-    // If earnings/deductions are updated, recalculate netAmount
     if (req.body.earnings || req.body.deductionsList || req.body.grossAmount) {
       const earnings = req.body.earnings || payroll.earnings;
       const deductionsList = req.body.deductionsList || payroll.deductionsList;
@@ -171,15 +154,28 @@ const updatePayroll = async (req, res) => {
       });
     }
 
-    if (updateData.pdfUrl && updateData.pdfUrl.startsWith('data:application/pdf')) {
-      try {
-        const uploadResponse = await cloudinary.uploader.upload(updateData.pdfUrl, {
-          folder: 'office-management/payroll',
-          resource_type: 'auto',
-        });
-        updateData.pdfUrl = uploadResponse.secure_url;
-      } catch (uploadError) {
-        console.error('Cloudinary Payroll Update Error:', uploadError);
+    if (updateData.pdfUrl && updateData.pdfUrl !== payroll.pdfUrl) {
+      let oldPdfUrl = payroll.pdfUrl;
+      let isReadyToDelete = false;
+
+      if (updateData.pdfUrl.startsWith('data:application/pdf')) {
+        try {
+          const uploadResponse = await cloudinary.uploader.upload(updateData.pdfUrl, {
+            folder: 'office-management/payroll',
+            resource_type: 'auto',
+          });
+          updateData.pdfUrl = uploadResponse.secure_url;
+          isReadyToDelete = true;
+        } catch (uploadError) {
+          console.error('Cloudinary Payroll Update Error:', uploadError);
+          isReadyToDelete = false;
+        }
+      } else if (updateData.pdfUrl.includes('cloudinary.com')) {
+        isReadyToDelete = true;
+      }
+
+      if (isReadyToDelete && oldPdfUrl) {
+        await deleteFromCloudinary(oldPdfUrl);
       }
     }
 
@@ -194,14 +190,15 @@ const updatePayroll = async (req, res) => {
   }
 };
 
-// @desc    Delete payroll record
-// @route   DELETE /api/payroll/:id
-// @access  Private/Admin
 const deletePayroll = async (req, res) => {
   try {
     const payroll = await Payroll.findById(req.params.id);
     if (!payroll) {
       return res.status(404).json({ success: false, message: 'Payroll record not found' });
+    }
+
+    if (payroll.pdfUrl) {
+      await deleteFromCloudinary(payroll.pdfUrl);
     }
 
     await payroll.deleteOne();

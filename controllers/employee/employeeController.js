@@ -1,5 +1,6 @@
 const Employee = require('../../models/Employee');
 const cloudinary = require('../../config/cloudinary');
+const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 
 // @desc    Get all employees
 // @route   GET /api/employees
@@ -54,6 +55,11 @@ const updateEmployee = async (req, res) => {
     console.log('Update Request Body Keys:', Object.keys(req.body));
     let updateData = { ...req.body };
 
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
     // Handle profileImage as an alias for avatar if needed
     if (updateData.profileImage && !updateData.avatar) {
       updateData.avatar = updateData.profileImage;
@@ -66,30 +72,42 @@ const updateEmployee = async (req, res) => {
       });
     }
 
-    if (updateData.avatar && updateData.avatar.startsWith('data:image')) {
-      try {
-        console.log('Uploading image to Cloudinary...');
-        const uploadResponse = await cloudinary.uploader.upload(updateData.avatar, {
-          folder: 'office-management/avatars',
-          // Optimize image on upload
-          transformation: [
-            { width: 500, height: 500, crop: 'limit' }, // Resize if larger than 500x500
-            { quality: 'auto' }, // Automatic compression
-            { fetch_format: 'auto' } // Automatic format (webp/avif)
-          ]
-        });
-        console.log('Cloudinary Upload Success:', uploadResponse.secure_url);
-        updateData.avatar = uploadResponse.secure_url;
-        // Ensure we remove profileImage from updateData if it was there to avoid confusion
-        delete updateData.profileImage;
-      } catch (uploadError) {
-        console.error('Cloudinary Upload Error:', uploadError);
-        return res.status(500).json({
-          success: false,
-          message: 'Image upload failed',
-          error: uploadError.message
-        });
+    // Check if avatar is being updated (could be base64 OR a new Cloudinary URL from dedicated API)
+    if (updateData.avatar && updateData.avatar !== employee.avatar) {
+      let oldAvatarUrl = employee.avatar;
+      let isReadyToDelete = false;
+
+      if (updateData.avatar.startsWith('data:image')) {
+        try {
+          console.log('Uploading image to Cloudinary...');
+          const uploadResponse = await cloudinary.uploader.upload(updateData.avatar, {
+            folder: 'office-management/avatars',
+            transformation: [
+              { width: 500, height: 500, crop: 'limit' },
+              { quality: 'auto' },
+              { fetch_format: 'auto' }
+            ]
+          });
+          console.log('Cloudinary Upload Success:', uploadResponse.secure_url);
+          updateData.avatar = uploadResponse.secure_url;
+          isReadyToDelete = true;
+        } catch (uploadError) {
+          console.error('Cloudinary Upload Error:', uploadError);
+          isReadyToDelete = false;
+          // Optionally: return error or continue without update
+        }
+      } else if (updateData.avatar.includes('cloudinary.com')) {
+        // It's a new Cloudinary URL already uploaded
+        isReadyToDelete = true;
       }
+
+      // Delete old avatar only if new one is set
+      if (isReadyToDelete && oldAvatarUrl) {
+        await deleteFromCloudinary(oldAvatarUrl);
+      }
+      
+      // Clean up aliases
+      delete updateData.profileImage;
     }
 
     if (!isAdmin) {
@@ -99,11 +117,6 @@ const updateEmployee = async (req, res) => {
       delete updateData.status;
       delete updateData.department;
       delete updateData.password; // Should have a separate change-password route
-    }
-
-    const employee = await Employee.findById(req.params.id).select('-avatar');
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
     if (updateData.password) {
@@ -141,6 +154,10 @@ const deleteEmployee = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
     if (employee) {
+      // Delete avatar from Cloudinary
+      if (employee.avatar) {
+        await deleteFromCloudinary(employee.avatar);
+      }
       await employee.deleteOne();
       res.json({ success: true, message: 'Employee removed' });
     } else {

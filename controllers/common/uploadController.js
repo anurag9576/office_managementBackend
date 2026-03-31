@@ -43,8 +43,17 @@ const getCloudinarySignature = (req, res) => {
 const uploadFile = async (req, res) => {
   const startTime = Date.now();
   try {
+    console.log('--- Incoming Upload Request ---');
+    console.log('Headers:', req.headers['content-type']);
+    console.log('Body Keys:', Object.keys(req.body));
+    
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file provided' });
+      console.warn('Upload Attempt Failed: No file found in request. Check if multipart/form-data field name is "file".');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No file provided. Ensure your form field name is "file".',
+        receivedBody: Object.keys(req.body) 
+      });
     }
 
     const folder = req.body.folder || 'office-management/general';
