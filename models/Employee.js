@@ -102,7 +102,7 @@ const EmployeeSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Hash password and Generate Employee ID before saving
-EmployeeSchema.pre('save', async function (next) {
+EmployeeSchema.pre('save', async function () {
   // Hash password
   if (this.isModified('password')) {
     const salt = await bcrypt.genSalt(10);
@@ -129,10 +129,9 @@ EmployeeSchema.pre('save', async function (next) {
       const formattedNumber = nextIdNumber < 10 ? `0${nextIdNumber}` : nextIdNumber;
       this.employeeId = `HHPL ${formattedNumber}`;
     } catch (err) {
-      return next(err);
+      throw err;
     }
   }
-  next();
 });
 
 // Match password method
