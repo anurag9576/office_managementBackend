@@ -11,8 +11,8 @@ const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 const getAnnouncements = async (req, res) => {
   try {
     const announcements = await Announcement.find({})
-      .populate('author', 'firstName lastName role')
-      .populate('comments.user', 'firstName lastName')
+      .populate('author', 'firstName lastName role avatar')
+      .populate('comments.user', 'firstName lastName avatar')
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();

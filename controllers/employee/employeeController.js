@@ -65,14 +65,14 @@ const updateEmployee = async (req, res) => {
       updateData.avatar = updateData.profileImage;
     }
 
-    if (updateData.avatar && updateData.avatar.length > 7000000) { // Approx 5MB binary
+    if (updateData.avatar && updateData.avatar.length > 7000000) { 
       return res.status(400).json({
         success: false,
         message: 'Image is too large! Please upload a file smaller than 5MB.'
       });
     }
 
-    // Check if avatar is being updated (could be base64 OR a new Cloudinary URL from dedicated API)
+   
     if (updateData.avatar && updateData.avatar !== employee.avatar) {
       let oldAvatarUrl = employee.avatar;
       let isReadyToDelete = false;
@@ -94,29 +94,26 @@ const updateEmployee = async (req, res) => {
         } catch (uploadError) {
           console.error('Cloudinary Upload Error:', uploadError);
           isReadyToDelete = false;
-          // Optionally: return error or continue without update
+          
         }
       } else if (updateData.avatar.includes('cloudinary.com')) {
-        // It's a new Cloudinary URL already uploaded
         isReadyToDelete = true;
       }
 
-      // Delete old avatar only if new one is set
       if (isReadyToDelete && oldAvatarUrl) {
         await deleteFromCloudinary(oldAvatarUrl);
       }
       
-      // Clean up aliases
       delete updateData.profileImage;
     }
 
     if (!isAdmin) {
       delete updateData.role;
-      delete updateData.salary; // (if added in the future)
+      delete updateData.salary; 
       delete updateData.employeeId;
       delete updateData.status;
       delete updateData.department;
-      delete updateData.password; // Should have a separate change-password route
+      delete updateData.password; 
     }
 
     if (updateData.password) {
@@ -125,6 +122,13 @@ const updateEmployee = async (req, res) => {
       updateData.password = await bcrypt.hash(updateData.password, salt);
     } else {
       delete updateData.password;
+    }
+
+    // Auto-manage terminationDate based on status
+    if (updateData.status === 'Terminated' && employee.status !== 'Terminated') {
+      updateData.terminationDate = new Date();
+    } else if (updateData.status === 'Active' && employee.status === 'Terminated') {
+      updateData.terminationDate = null;
     }
 
     delete updateData._id;
@@ -147,26 +151,7 @@ const updateEmployee = async (req, res) => {
   }
 };
 
-// @desc    Delete employee
-// @route   DELETE /api/employees/:id
-// @access  Private/Admin
-const deleteEmployee = async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-    if (employee) {
-      // Delete avatar from Cloudinary
-      if (employee.avatar) {
-        await deleteFromCloudinary(employee.avatar);
-      }
-      await employee.deleteOne();
-      res.json({ success: true, message: 'Employee removed' });
-    } else {
-      res.status(404).json({ success: false, message: 'Employee not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
+
 
 // @desc    Get next employee ID
 // @route   GET /api/employees/next-id
@@ -196,4 +181,4 @@ const getNextEmployeeId = async (req, res) => {
   }
 };
 
-module.exports = { getEmployees, getEmployeeById, updateEmployee, deleteEmployee, getNextEmployeeId };
+module.exports = { getEmployees, getEmployeeById, updateEmployee, getNextEmployeeId };
