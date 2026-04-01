@@ -54,6 +54,10 @@ const EmployeeSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  terminationDate: {
+    type: Date,
+    default: null
+  },
   phone: {
     type: String,
     trim: true,

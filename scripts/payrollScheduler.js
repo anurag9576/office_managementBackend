@@ -6,15 +6,14 @@ const Leave = require('../models/Leave');
 /**
  * Automatically generates payroll for all employees using their saved structure
  */
-const runAutoPayroll = async () => {
+const runAutoPayroll = async (targetDate = new Date()) => {
   try {
-    console.log('--- STARTING AUTO PAYROLL GENERATION ---');
+    console.log(`--- STARTING AUTO PAYROLL GENERATION FOR ${targetDate.toDateString()} ---`);
     const employees = await Employee.find({ 'salaryStructure.isAutoGenerate': true });
 
-    const now = new Date();
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const currentMonth = months[now.getMonth()];
-    const currentYear = now.getFullYear();
+    const currentMonth = months[targetDate.getMonth()];
+    const currentYear = targetDate.getFullYear();
 
     for (const emp of employees) {
       // Check if payroll already exists for this month/year for safety
@@ -35,9 +34,9 @@ const runAutoPayroll = async () => {
       }
 
       const struct = emp.salaryStructure;
-      const startOfMonth = new Date(currentYear, now.getMonth(), 1);
-      const lastDayDate = new Date(currentYear, now.getMonth() + 1, 0);
-      const endOfMonth = new Date(currentYear, now.getMonth() + 1, 0, 23, 59, 59);
+      const startOfMonth = new Date(currentYear, targetDate.getMonth(), 1);
+      const lastDayDate = new Date(currentYear, targetDate.getMonth() + 1, 0);
+      const endOfMonth = new Date(currentYear, targetDate.getMonth() + 1, 0, 23, 59, 59);
       const totalDaysInMonth = lastDayDate.getDate();
       const periodString = `${currentMonth} 01 - ${currentMonth} ${totalDaysInMonth}, ${currentYear}`;
 
@@ -100,6 +99,9 @@ cron.schedule('0 17 * * *', async () => {
         console.log('Today is the last day of the month (5:00 PM). Triggering auto-payroll...');
         await runAutoPayroll();
     }
+}, {
+    scheduled: true,
+    timezone: "Asia/Kolkata" // Set strict timezone so it isn't affected by server UTC setting
 });
 
 // Also provide a way to export the function for manual triggering if needed
