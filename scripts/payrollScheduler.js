@@ -2,21 +2,22 @@ const cron = require('node-cron');
 const Payroll = require('../models/Payroll');
 const Employee = require('../models/Employee');
 const Leave = require('../models/Leave');
+const SalaryMaster = require('../models/SalaryMaster');
 
-/**
- * Automatically generates payroll for all employees using their saved structure
- */
 const runAutoPayroll = async (targetDate = new Date()) => {
   try {
     console.log(`--- STARTING AUTO PAYROLL GENERATION FOR ${targetDate.toDateString()} ---`);
-    const employees = await Employee.find({ 'salaryStructure.isAutoGenerate': true });
+    
+    const salaryMasters = await SalaryMaster.find({}).populate('employee');
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentMonth = months[targetDate.getMonth()];
     const currentYear = targetDate.getFullYear();
 
-    for (const emp of employees) {
-      // Check if payroll already exists for this month/year for safety
+    for (const master of salaryMasters) {
+      const emp = master.employee;
+      if (!emp) continue;
+
       const existing = await Payroll.findOne({ 
         employee: emp._id, 
         month: currentMonth, 
@@ -28,19 +29,17 @@ const runAutoPayroll = async (targetDate = new Date()) => {
         continue;
       }
 
-      if (!emp.salaryStructure || !emp.salaryStructure.netAmount) {
-        console.log(`Skipping ${emp.firstName} - No salary structure set.`);
+      if (!master.netAmount) {
+        console.log(`Skipping ${emp.firstName} - No net amount set in Salary Master.`);
         continue;
       }
 
-      const struct = emp.salaryStructure;
       const startOfMonth = new Date(currentYear, targetDate.getMonth(), 1);
       const lastDayDate = new Date(currentYear, targetDate.getMonth() + 1, 0);
       const endOfMonth = new Date(currentYear, targetDate.getMonth() + 1, 0, 23, 59, 59);
       const totalDaysInMonth = lastDayDate.getDate();
       const periodString = `${currentMonth} 01 - ${currentMonth} ${totalDaysInMonth}, ${currentYear}`;
 
-      // Calculate Leaves/Absent Days
       const approvedLeaves = await Leave.find({
         employee: emp._id,
         status: 'Approved',
@@ -52,7 +51,6 @@ const runAutoPayroll = async (targetDate = new Date()) => {
 
       let daysAbsent = 0;
       approvedLeaves.forEach(lv => {
-        // Calculate overlap with current month if leave spans across months
         const start = lv.startDate < startOfMonth ? startOfMonth : lv.startDate;
         const end = lv.endDate > endOfMonth ? endOfMonth : lv.endDate;
         const diffTime = Math.abs(end - start);
@@ -67,17 +65,17 @@ const runAutoPayroll = async (targetDate = new Date()) => {
         month: currentMonth,
         year: currentYear,
         paymentDate: lastDayDate,
-        netAmount: struct.netAmount,
-        grossAmount: struct.grossAmount,
-        totalDeductions: struct.totalDeductions,
+        netAmount: master.netAmount,
+        grossAmount: master.grossAmount,
+        totalDeductions: master.totalDeductions,
         period: periodString,
-        designation: emp.designation,
-        departmentName: '', // Optional
+        designation: master.designation || emp.designation,
+        departmentName: master.departmentName || '', 
         daysPresent,
         daysAbsent,
         totalDays: totalDaysInMonth,
-        earnings: struct.earnings || [],
-        deductionsList: struct.deductionsList || [],
+        earnings: master.earnings || [],
+        deductionsList: master.deductionsList || [],
         status: 'Paid'
       });
       console.log(`Successfully generated payroll for ${emp.firstName} ${emp.lastName}`);
@@ -88,20 +86,20 @@ const runAutoPayroll = async (targetDate = new Date()) => {
   }
 };
 
-// PRODUCTION SCHEDULE: Runs at 5:00 PM (17:00) on the Last day of Every Month
-cron.schedule('0 17 * * *', async () => {
+// PRODUCTION SCHEDULE: Runs at 2:00 PM (14:00) on the Last day of Every Month
+cron.schedule('0 14 * * *', async () => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
     // If tomorrow is the 1st, then today is the last day of the month
     if (tomorrow.getDate() === 1) {
-        console.log('Today is the last day of the month (5:00 PM). Triggering auto-payroll...');
+        console.log('Today is the last day of the month (2:00 PM). Triggering auto-payroll...');
         await runAutoPayroll();
     }
 }, {
     scheduled: true,
-    timezone: "Asia/Kolkata" // Set strict timezone so it isn't affected by server UTC setting
+    timezone: "Asia/Kolkata" 
 });
 
 // Also provide a way to export the function for manual triggering if needed

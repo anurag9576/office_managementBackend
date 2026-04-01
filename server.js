@@ -14,6 +14,67 @@ connectDB();
 require('./scripts/payrollScheduler');
 console.log('--- AUTO-PAYROLL SCHEDULER ACTIVE ---');
 
+// ONE-TIME MIGRATION: Employee/Payroll -> SalaryMaster
+const SalaryMaster = require('./models/SalaryMaster');
+const Employee = require('./models/Employee');
+const Payroll = require('./models/Payroll');
+const runMigration = async () => {
+  try {
+    const allEmployees = await Employee.find({});
+    let migratedCount = 0;
+
+    for (const emp of allEmployees) {
+      // 1. Check if SalaryMaster already exists
+      let master = await SalaryMaster.findOne({ employee: emp._id });
+      if (master) continue;
+
+      let sourceData = null;
+
+      // 2. Try to get from Employee.salaryStructure first
+      if (emp.salaryStructure && emp.salaryStructure.netAmount > 0) {
+        sourceData = {
+          designation: emp.designation,
+          grossAmount: emp.salaryStructure.grossAmount,
+          totalDeductions: emp.salaryStructure.totalDeductions,
+          netAmount: emp.salaryStructure.netAmount,
+          earnings: emp.salaryStructure.earnings,
+          deductionsList: emp.salaryStructure.deductionsList,
+          isAutoGenerate: emp.salaryStructure.isAutoGenerate !== undefined ? emp.salaryStructure.isAutoGenerate : true
+        };
+      } 
+      // 3. If not found, try to get from the latest Payroll record
+      else {
+        const latestPayroll = await Payroll.findOne({ employee: emp._id }).sort('-paymentDate');
+        if (latestPayroll) {
+          sourceData = {
+            designation: latestPayroll.designation || emp.designation,
+            grossAmount: latestPayroll.grossAmount,
+            totalDeductions: latestPayroll.totalDeductions,
+            netAmount: latestPayroll.netAmount,
+            earnings: latestPayroll.earnings,
+            deductionsList: latestPayroll.deductionsList,
+            isAutoGenerate: true
+          };
+        }
+      }
+
+      if (sourceData) {
+        await SalaryMaster.create({
+          employee: emp._id,
+          ...sourceData
+        });
+        migratedCount++;
+      }
+    }
+    if (migratedCount > 0) {
+      console.log(`--- SALARY MASTER MIGRATION COMPLETE: ${migratedCount} NEW RECORDS ---`);
+    }
+  } catch (err) {
+    console.error('Migration error:', err);
+  }
+};
+runMigration();
+
 const app = express();
 const path = require('path');
 
@@ -62,6 +123,7 @@ const timesheetRoutes = require('./routes/common/timesheetRoutes');
 const documentRoutes = require('./routes/common/documentRoutes');
 const holidayRoutes = require('./routes/admin/holidayRoutes');
 const uploadRoutes = require('./routes/common/uploadRoutes');
+const salaryMasterRoutes = require('./routes/admin/salaryMasterRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -70,6 +132,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/salary-master', salaryMasterRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/timesheets', timesheetRoutes);
