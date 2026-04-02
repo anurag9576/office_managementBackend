@@ -1,75 +1,16 @@
-const jwt = require('jsonwebtoken');
+const AuthService = require('../../services/common/AuthService');
 const Employee = require('../../models/Employee');
-const cloudinary = require('../../config/cloudinary');
-
-// Generate Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
 
 // @desc    Register a new employee/admin
 // @route   POST /api/auth/register
 // @access  Private/Admin
 const registerEmployee = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, employeeId, role, designation, department } = req.body;
-
-    const employeeExists = await Employee.findOne({ $or: [{ email }, { employeeId }] });
-    if (employeeExists) {
-      return res.status(400).json({ success: false, message: 'Employee already exists' });
-    }
-
-    let avatarUrl = req.body.avatar || req.body.profileImage;
-
-    if (avatarUrl && avatarUrl.length > 7000000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Image is too large! Please upload a file smaller than 5MB.'
-      });
-    }
-
-    if (avatarUrl && avatarUrl.startsWith('data:image')) {
-      try {
-        const uploadResponse = await cloudinary.uploader.upload(avatarUrl, {
-          folder: 'office-management/avatars',
-        });
-        avatarUrl = uploadResponse.secure_url;
-      } catch (uploadError) {
-        console.error('Cloudinary Registration Upload Error:', uploadError);
-      }
-    }
-
-    const employee = await Employee.create({
-      firstName,
-      lastName,
-      email,
-      password,
-      employeeId,
-      role,
-      designation,
-      department,
-      avatar: avatarUrl
-    });
-
-    if (employee) {
-      res.status(201).json({
-        success: true,
-        data: {
-          _id: employee._id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          email: employee.email,
-          role: employee.role,
-          avatar: employee.avatar,
-          passwordChanged: employee.passwordChanged,
-          token: generateToken(employee._id),
-        },
-      });
-    } else {
-      res.status(400).json({ success: false, message: 'Invalid employee data' });
-    }
+    const data = await AuthService.register(req.body);
+    res.status(201).json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const statusCode = error.message.includes('exists') ? 400 : 500;
+    res.status(statusCode).json({ success: false, error: error.message });
   }
 };
 
@@ -79,35 +20,12 @@ const registerEmployee = async (req, res) => {
 const loginEmployee = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // Select everything EXCEPT heavy fields like avatar unless absolutely necessary
-    const employee = await Employee.findOne({ email }).select('+password');
-
-    if (employee && (await employee.matchPassword(password))) {
-      if (employee.status === 'Terminated') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your account has been deactivated. Access denied.'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          _id: employee._id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          email: employee.email,
-          role: employee.role,
-          avatar: employee.avatar,
-          passwordChanged: employee.passwordChanged,
-          token: generateToken(employee._id),
-        },
-      });
-    } else {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
-    }
+    const data = await AuthService.login(email, password);
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const statusCode = error.message.includes('Invalid') ? 401 : 
+                      error.message.includes('deactivated') ? 403 : 500;
+    res.status(statusCode).json({ success: false, message: error.message });
   }
 };
 

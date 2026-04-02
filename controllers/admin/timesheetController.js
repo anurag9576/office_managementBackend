@@ -1,11 +1,11 @@
-const Timesheet = require('../../models/Timesheet');
+const TimesheetService = require('../../services/employee/TimesheetService');
 
 // @desc    Get all timesheets for logged in employee
 // @route   GET /api/timesheets/my
 // @access  Private
 exports.getMyTimesheets = async (req, res) => {
     try {
-        const timesheets = await Timesheet.find({ employeeId: req.user.id }).sort({ date: -1 });
+        const timesheets = await TimesheetService.getMyTimesheets(req.user.id);
         res.status(200).json({
             success: true,
             data: timesheets
@@ -24,18 +24,7 @@ exports.getMyTimesheets = async (req, res) => {
 // @access  Private
 exports.createTimesheet = async (req, res) => {
     try {
-        const { date, project, branchName, task, minutes, workStatus } = req.body;
-
-        const timesheet = await Timesheet.create({
-            employeeId: req.user.id,
-            date,
-            project,
-            branchName,
-            task,
-            minutes,
-            workStatus
-        });
-
+        const timesheet = await TimesheetService.createTimesheet(req.user.id, req.body);
         res.status(201).json({
             success: true,
             data: timesheet
@@ -54,28 +43,20 @@ exports.createTimesheet = async (req, res) => {
 // @access  Private
 exports.updateTimesheet = async (req, res) => {
     try {
-        let timesheet = await Timesheet.findById(req.params.id);
-
-        if (!timesheet) {
-            return res.status(404).json({ success: false, message: 'Timesheet not found' });
-        }
-
-        // Make sure user owns timesheet
-        if (timesheet.employeeId.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(401).json({ success: false, message: 'Not authorized' });
-        }
-
-        timesheet = await Timesheet.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true
-        });
-
+        const timesheet = await TimesheetService.updateTimesheet(
+            req.params.id, 
+            req.user.id, 
+            req.body, 
+            req.user.role
+        );
         res.status(200).json({
             success: true,
             data: timesheet
         });
     } catch (error) {
-        res.status(400).json({
+        const statusCode = error.message.includes('not found') ? 404 : 
+                          error.message.includes('authorized') ? 401 : 400;
+        res.status(statusCode).json({
             success: false,
             message: 'Update Error',
             error: error.message
@@ -88,25 +69,15 @@ exports.updateTimesheet = async (req, res) => {
 // @access  Private
 exports.deleteTimesheet = async (req, res) => {
     try {
-        const timesheet = await Timesheet.findById(req.params.id);
-
-        if (!timesheet) {
-            return res.status(404).json({ success: false, message: 'Timesheet not found' });
-        }
-
-        // Make sure user owns timesheet
-        if (timesheet.employeeId.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(401).json({ success: false, message: 'Not authorized' });
-        }
-
-        await timesheet.deleteOne();
-
+        await TimesheetService.deleteTimesheet(req.params.id, req.user.id, req.user.role);
         res.status(200).json({
             success: true,
             message: 'Timesheet removed'
         });
     } catch (error) {
-        res.status(500).json({
+        const statusCode = error.message.includes('not found') ? 404 : 
+                          error.message.includes('authorized') ? 401 : 500;
+        res.status(statusCode).json({
             success: false,
             message: 'Delete Error',
             error: error.message
@@ -119,7 +90,7 @@ exports.deleteTimesheet = async (req, res) => {
 // @access  Private/Admin
 exports.getAllTimesheets = async (req, res) => {
     try {
-        const timesheets = await Timesheet.find().populate('employeeId', 'firstName lastName email role').sort({ date: -1 });
+        const timesheets = await TimesheetService.getAllTimesheets();
         res.status(200).json({
             success: true,
             data: timesheets

@@ -3,11 +3,11 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const options = {
-      maxPoolSize: 50, // Increase pool size for parallel requests
-      connectTimeoutMS: 10000, // Timeout after 10s if cannot connect
+      maxPoolSize: 50, 
+      connectTimeoutMS: 10000, 
     };
     const conn = await mongoose.connect(process.env.MONGO_URI, options);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`MongoDB Connected: Thank You`);
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);

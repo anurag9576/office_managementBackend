@@ -1,3 +1,4 @@
+const RoleService = require('../../services/admin/RoleService');
 const Role = require('../../models/Role');
 
 // @desc    Get all roles
@@ -5,50 +6,7 @@ const Role = require('../../models/Role');
 // @access  Private/Admin
 const getRoles = async (req, res) => {
   try {
-    let roles = await Role.find();
-    
-    // If no roles exist, seed default roles
-    if (roles.length === 0) {
-      const defaultRoles = [
-        { 
-          name: 'Admin', 
-          permissions: ['dashboard', 'employees', 'roles', 'leaves-admin', 'payroll-admin', 'tasks', 'reports', 'announcement', 'settings'],
-          isSystemRole: true 
-        },
-        { 
-          name: 'Employee', 
-          permissions: ['dashboard', 'profile', 'leaves', 'payroll', 'announcement', 'help'],
-          isSystemRole: true 
-        },
-        { 
-          name: 'HR Manager', 
-          permissions: ['dashboard', 'employees', 'leaves-admin', 'announcement'],
-          isSystemRole: false 
-        },
-        { 
-          name: 'QA', 
-          permissions: ['dashboard', 'profile', 'announcement', 'help'],
-          isSystemRole: false 
-        },
-        { 
-          name: 'Developer', 
-          permissions: ['dashboard', 'profile', 'announcement', 'help', 'tasks'],
-          isSystemRole: false 
-        },
-        { 
-          name: 'Manager', 
-          permissions: ['dashboard', 'leaves-admin', 'announcement', 'tasks', 'profile', 'help'],
-          isSystemRole: false 
-        },
-        { 
-          name: 'IT Team', 
-          permissions: ['dashboard', 'settings', 'announcement', 'help'],
-          isSystemRole: false 
-        }
-      ];
-      roles = await Role.insertMany(defaultRoles);
-    }
-    
+    const roles = await RoleService.getRoles();
     res.json({ success: true, data: roles });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -60,24 +18,7 @@ const getRoles = async (req, res) => {
 // @access  Private/Admin
 const upsertRole = async (req, res) => {
   try {
-    const { id, name, permissions, description } = req.body;
-
-    let role;
-    if (id) {
-      role = await Role.findById(id);
-    } else {
-      role = await Role.findOne({ name });
-    }
-
-    if (role) {
-      role.name = name || role.name;
-      role.permissions = permissions;
-      role.description = description || role.description;
-      await role.save();
-    } else {
-      role = await Role.create({ name, permissions, description });
-    }
-
+    const role = await RoleService.upsertRole(req.body);
     res.json({ success: true, data: role });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -89,21 +30,12 @@ const upsertRole = async (req, res) => {
 // @access  Private/Admin
 const deleteRole = async (req, res) => {
   try {
-    const role = await Role.findById(req.params.id);
-
-    if (!role) {
-      return res.status(404).json({ success: false, message: 'Role not found' });
-    }
-
-    const protectedRoles = ['Admin', 'Employee'];
-    if (protectedRoles.includes(role.name)) {
-      return res.status(400).json({ success: false, message: 'System roles (Admin/Employee) cannot be deleted' });
-    }
-
-    await role.deleteOne();
+    await RoleService.deleteRole(req.params.id);
     res.json({ success: true, message: 'Role deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const statusCode = error.message.includes('not found') ? 404 : 
+                      error.message.includes('System') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: error.message });
   }
 };
 
