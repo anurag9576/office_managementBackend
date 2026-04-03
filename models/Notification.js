@@ -4,8 +4,17 @@ const notificationSchema = new mongoose.Schema({
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',
-    required: true
+    required: false
   },
+  isGlobal: {
+    type: Boolean,
+    default: false
+  },
+  readBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: []
+  }],
   title: {
     type: String,
     required: true
@@ -39,6 +48,8 @@ const notificationSchema = new mongoose.Schema({
 
 // Add indexes for faster querying
 notificationSchema.index({ recipient: 1, createdAt: -1 });
+notificationSchema.index({ isGlobal: 1, createdAt: -1 });
 notificationSchema.index({ isRead: 1 });
+notificationSchema.index({ readBy: 1 }); // Track which user read which global notification faster
 
 module.exports = mongoose.model('Notification', notificationSchema);

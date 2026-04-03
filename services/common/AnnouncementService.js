@@ -42,19 +42,14 @@ class AnnouncementService {
       author: authorId,
     });
 
-    // Notify All Employees
-    const employees = await Employee.find({});
-    employees.forEach(emp => {
-      if (emp._id.toString() !== authorId.toString()) {
-        NotificationService.createNotification({
-          recipient: emp._id,
-          title: 'New Announcement',
-          message: title,
-          type: 'info',
-          icon: 'campaign',
-          route: '/dashboard/announcement'
-        });
-      }
+    // Global Notification for all Employees
+    await NotificationService.createNotification({
+      title: 'New Announcement',
+      message: title,
+      type: 'info',
+      icon: 'campaign',
+      route: '/dashboard/announcement',
+      isGlobal: true // This informs the service it's for everyone
     });
 
     return announcement;
@@ -135,11 +130,16 @@ class AnnouncementService {
     }
 
     // Related cleanup
-    await Notification.deleteMany({
+    const notificationsToDelete = await Notification.find({
       title: 'New Announcement',
       message: announcement.title,
       route: '/dashboard/announcement'
     });
+    const notifIds = notificationsToDelete.map(n => n._id);
+    
+    if (notifIds.length > 0) {
+      await Notification.deleteMany({ _id: { $in: notifIds } });
+    }
 
     if (announcement.imageUrl) {
       await deleteFromCloudinary(announcement.imageUrl);
