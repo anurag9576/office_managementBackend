@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 class EmployeeProfileService {
   async getEmployees() {
     return await Employee.find({})
-      .select('firstName lastName email role designation status employeeId joiningDate avatar')
+      .select('firstName lastName email role designation status employeeId joiningDate avatar emergencyContact phone address personalEmail')
       .populate('department', 'name')
       .lean();
   }
