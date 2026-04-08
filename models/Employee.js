@@ -33,7 +33,7 @@ const EmployeeSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Admin', 'HR Manager', 'QA', 'Developer', 'Manager', 'IT Team', 'Employee'],
+    enum: ['Admin', 'HR', 'QA', 'Developer', 'Manager', 'IT Team', 'Employee'],
     default: 'Employee',
   },
   designation: {

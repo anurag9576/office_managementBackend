@@ -51,9 +51,22 @@ const getAllLeaves = async (req, res) => {
   }
 };
 
+// @desc    Get leave summary for HR/Admin
+// @route   GET /api/leaves/summary
+// @access  Private
+const getLeaveSummary = async (req, res) => {
+  try {
+    const summary = await LeaveService.getLeaveSummary(req.user);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    res.status(error.message.includes('authorized') ? 403 : 500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   applyLeave,
   getMyLeaves,
   updateLeaveStatus,
-  getAllLeaves
+  getAllLeaves,
+  getLeaveSummary
 };

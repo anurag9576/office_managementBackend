@@ -9,7 +9,7 @@ class RoleService {
       const defaultRoles = [
         { 
           name: 'Admin', 
-          permissions: ['dashboard', 'employees', 'roles', 'leaves-admin', 'payroll-admin', 'tasks', 'reports', 'announcement', 'settings'],
+          permissions: ['dashboard', 'employees', 'roles', 'leaves-admin', 'leaves-reports', 'payroll-admin', 'tasks', 'reports', 'announcement', 'settings'],
           isSystemRole: true 
         },
         { 
@@ -18,8 +18,8 @@ class RoleService {
           isSystemRole: true 
         },
         { 
-          name: 'HR Manager', 
-          permissions: ['dashboard', 'employees', 'leaves-admin', 'announcement'],
+          name: 'HR', 
+          permissions: ['dashboard', 'employees', 'leaves-admin', 'leaves-reports', 'announcement'],
           isSystemRole: false 
         },
         { 
