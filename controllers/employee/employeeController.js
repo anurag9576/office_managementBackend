@@ -5,7 +5,7 @@ const EmployeeProfileService = require('../../services/employee/EmployeeProfileS
 // @access  Private/Admin
 const getEmployees = async (req, res) => {
   try {
-    const employees = await EmployeeProfileService.getEmployees();
+    const employees = await EmployeeProfileService.getEmployees(req.user);
     res.json({ success: true, count: employees.length, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

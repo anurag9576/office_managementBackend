@@ -32,6 +32,11 @@ const timesheetSchema = new mongoose.Schema({
     workStatus: {
         type: String,
         required: true
+    },
+    manager: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employee',
+        default: null
     }
 }, {
     timestamps: true

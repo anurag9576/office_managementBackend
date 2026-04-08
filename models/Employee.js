@@ -103,6 +103,11 @@ const EmployeeSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  reportingManager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null,
+  },
 }, { timestamps: true });
 
 // Hash password and Generate Employee ID before saving

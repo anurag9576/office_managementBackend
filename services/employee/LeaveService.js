@@ -24,20 +24,37 @@ class LeaveService {
       startDate,
       endDate,
       days,
-      reason
+      reason,
+      manager: employee.reportingManager
     });
 
-    const admins = await Employee.find({ role: 'Admin' });
-    admins.forEach(admin => {
-        NotificationService.createNotification({
-            recipient: admin._id,
-            title: 'New Leave Request',
-            message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
-            type: 'request',
-            icon: 'event_busy',
-            route: '/dashboard/leaves-admin'
-        });
-    });
+    // Notify Reporting Manager
+    if (employee.reportingManager) {
+      await NotificationService.createNotification({
+        recipient: employee.reportingManager,
+        title: 'New Leave Request',
+        message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+        type: 'request',
+        icon: 'event_busy',
+        route: '/dashboard/leaves-admin'
+      });
+    }
+
+    // Still notify Admins if needed, or maybe just the manager if one exists
+    // If no manager is assigned, notify admins
+    if (!employee.reportingManager) {
+      const admins = await Employee.find({ role: 'Admin' });
+      admins.forEach(admin => {
+          NotificationService.createNotification({
+              recipient: admin._id,
+              title: 'New Leave Request',
+              message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+              type: 'request',
+              icon: 'event_busy',
+              route: '/dashboard/leaves-admin'
+          });
+      });
+    }
 
     return leave;
   }
@@ -67,9 +84,16 @@ class LeaveService {
     return { leaves, stats };
   }
 
-  async updateLeaveStatus(id, status) {
+  async updateLeaveStatus(id, status, currentUser) {
     const leave = await Leave.findById(id);
     if (!leave) throw new Error('Leave not found');
+
+    const isAdmin = currentUser.role?.toLowerCase() === 'admin';
+    const isAssignedManager = leave.manager?.toString() === currentUser._id.toString();
+
+    if (!isAdmin && !isAssignedManager) {
+      throw new Error('You are not authorized to update this leave request');
+    }
 
     let employee = await Employee.findById(leave.employee);
     if (!employee.leaveBalance || !employee.leaveBalance.casual) {
@@ -97,6 +121,7 @@ class LeaveService {
 
     await employee.save();
     leave.status = status;
+    leave.approvedBy = currentUser._id;
     await leave.save();
 
     const isApproved = newStatus === 'approved';
@@ -112,8 +137,27 @@ class LeaveService {
     return leave;
   }
 
-  async getAllLeaves() {
-    return await Leave.find().populate('employee', 'firstName lastName employeeId').sort('-startDate');
+  async getAllLeaves(user) {
+    let query = {};
+    if (user.role !== 'Admin') {
+      // Find all employees reporting to this manager
+      const subordinates = await Employee.find({ reportingManager: user._id }).select('_id');
+      const subordinateIds = subordinates.map(s => s._id);
+      
+      query.employee = { $in: subordinateIds };
+    }
+    return await Leave.find(query)
+      .populate({
+        path: 'employee',
+        select: 'firstName lastName employeeId reportingManager',
+        populate: {
+          path: 'reportingManager',
+          select: 'firstName lastName'
+        }
+      })
+      .populate('manager', 'firstName lastName')
+      .populate('approvedBy', 'firstName lastName')
+      .sort('-createdAt');
   }
 }
 

@@ -4,16 +4,26 @@ const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 const bcrypt = require('bcryptjs');
 
 class EmployeeProfileService {
-  async getEmployees() {
-    return await Employee.find({})
-      .select('firstName lastName email role designation status employeeId joiningDate avatar')
+  async getEmployees(user) {
+    let query = {};
+    if (user && user.role !== 'Admin') {
+      // If not admin, show only employees reporting to this user
+      // Or maybe allow them to see everyone if they have 'employees' permission?
+      // Usually, for reports, they only need their subordinates.
+      query.reportingManager = user._id;
+    }
+
+    return await Employee.find(query)
+      .select('firstName lastName email role designation status employeeId joiningDate avatar reportingManager')
       .populate('department', 'name')
+      .populate('reportingManager', 'firstName lastName')
       .lean();
   }
 
   async getEmployeeById(id) {
     const employee = await Employee.findById(id)
       .populate('department', 'name')
+      .populate('reportingManager', 'firstName lastName')
       .lean();
     if (!employee) throw new Error('Employee not found');
     return employee;
@@ -81,6 +91,7 @@ class EmployeeProfileService {
       delete dataToUpdate.status;
       delete dataToUpdate.department;
       delete dataToUpdate.password;
+      delete dataToUpdate.reportingManager;
     }
 
     if (dataToUpdate.password) {
