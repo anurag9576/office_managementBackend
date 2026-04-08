@@ -31,7 +31,7 @@ class AuthService {
   }
 
   async register(data) {
-    const { firstName, lastName, email, password, employeeId, role, designation, department } = data;
+    const { firstName, lastName, email, password, employeeId, role, designation, department, reportingManager } = data;
     const employeeExists = await Employee.findOne({ $or: [{ email }, { employeeId }] });
     if (employeeExists) {
       throw new Error('Employee already exists');
@@ -54,6 +54,7 @@ class AuthService {
       role,
       designation,
       department,
+      reportingManager: reportingManager || null,
       avatar: avatarUrl
     });
 

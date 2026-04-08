@@ -30,7 +30,7 @@ const getMyLeaves = async (req, res) => {
 // @access  Private/Admin
 const updateLeaveStatus = async (req, res) => {
   try {
-    const leave = await LeaveService.updateLeaveStatus(req.params.id, req.body.status);
+    const leave = await LeaveService.updateLeaveStatus(req.params.id, req.body.status, req.user);
     res.json({ success: true, data: leave });
   } catch (error) {
     const statusCode = error.message.includes('not found') ? 404 : 
@@ -44,10 +44,22 @@ const updateLeaveStatus = async (req, res) => {
 // @access  Private/Admin
 const getAllLeaves = async (req, res) => {
   try {
-    const leaves = await LeaveService.getAllLeaves();
+    const leaves = await LeaveService.getAllLeaves(req.user);
     res.json({ success: true, data: leaves });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get leave summary for HR/Admin
+// @route   GET /api/leaves/summary
+// @access  Private
+const getLeaveSummary = async (req, res) => {
+  try {
+    const summary = await LeaveService.getLeaveSummary(req.user);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    res.status(error.message.includes('authorized') ? 403 : 500).json({ success: false, error: error.message });
   }
 };
 
@@ -55,5 +67,6 @@ module.exports = {
   applyLeave,
   getMyLeaves,
   updateLeaveStatus,
-  getAllLeaves
+  getAllLeaves,
+  getLeaveSummary
 };

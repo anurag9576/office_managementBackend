@@ -4,16 +4,25 @@ const { deleteFromCloudinary } = require('../../utils/cloudinaryHelper');
 const bcrypt = require('bcryptjs');
 
 class EmployeeProfileService {
-  async getEmployees() {
-    return await Employee.find({})
-      .select('firstName lastName email role designation status employeeId joiningDate avatar')
+  async getEmployees(user) {
+    let query = {};
+    const userRole = user?.role?.toLowerCase();
+    if (user && userRole !== 'admin' && userRole !== 'hr') {
+      // If not admin/hr, show only employees reporting to this user
+      query.reportingManager = user._id;
+    }
+
+    return await Employee.find(query)
+      .select('firstName lastName email role designation status employeeId joiningDate avatar reportingManager')
       .populate('department', 'name')
+      .populate('reportingManager', 'firstName lastName')
       .lean();
   }
 
   async getEmployeeById(id) {
     const employee = await Employee.findById(id)
       .populate('department', 'name')
+      .populate('reportingManager', 'firstName lastName')
       .lean();
     if (!employee) throw new Error('Employee not found');
     return employee;
@@ -40,9 +49,10 @@ class EmployeeProfileService {
 
   async updateEmployee(id, updateData, currentUser) {
     const isSelfUpdate = currentUser._id.toString() === id;
-    const isAdmin = currentUser.role?.toLowerCase() === 'admin';
+    const userRole = currentUser.role?.toLowerCase();
+    const hasPrivileges = userRole === 'admin' || userRole === 'hr';
 
-    if (!isAdmin && !isSelfUpdate) {
+    if (!hasPrivileges && !isSelfUpdate) {
       throw new Error('You are not authorized to update this profile');
     }
 
@@ -74,13 +84,14 @@ class EmployeeProfileService {
       delete dataToUpdate.profileImage;
     }
 
-    if (!isAdmin) {
+    if (!hasPrivileges) {
       delete dataToUpdate.role;
       delete dataToUpdate.salary;
       delete dataToUpdate.employeeId;
       delete dataToUpdate.status;
       delete dataToUpdate.department;
       delete dataToUpdate.password;
+      delete dataToUpdate.reportingManager;
     }
 
     if (dataToUpdate.password) {

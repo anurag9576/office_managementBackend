@@ -31,6 +31,16 @@ const LeaveSchema = new mongoose.Schema({
     type: String,
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending'
+  },
+  manager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null,
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null,
   }
 }, { timestamps: true });
 

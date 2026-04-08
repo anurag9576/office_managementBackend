@@ -90,7 +90,7 @@ exports.deleteTimesheet = async (req, res) => {
 // @access  Private/Admin
 exports.getAllTimesheets = async (req, res) => {
     try {
-        const timesheets = await TimesheetService.getAllTimesheets();
+        const timesheets = await TimesheetService.getAllTimesheets(req.user);
         res.status(200).json({
             success: true,
             data: timesheets

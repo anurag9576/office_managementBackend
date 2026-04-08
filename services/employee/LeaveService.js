@@ -24,20 +24,72 @@ class LeaveService {
       startDate,
       endDate,
       days,
-      reason
+      reason,
+      manager: employee.reportingManager
     });
 
-    const admins = await Employee.find({ role: 'Admin' });
-    admins.forEach(admin => {
-        NotificationService.createNotification({
-            recipient: admin._id,
+    // Notify Reporting Manager
+    if (employee.reportingManager) {
+      await NotificationService.createNotification({
+        recipient: employee.reportingManager,
+        title: 'New Leave Request',
+        message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+        type: 'request',
+        icon: 'event_busy',
+        route: '/dashboard/leaves-admin'
+      });
+    }
+
+    // 2. Notify people with 'leaves-admin' permission (Admins, Managers, etc.)
+    const Role = require('../../models/Role');
+    const rolesWithMgmt = await Role.find({ permissions: 'leaves-admin' }).select('name');
+    const managementRoleNames = rolesWithMgmt.map(r => r.name);
+
+    if (managementRoleNames.length > 0) {
+      const authorizedManagers = await Employee.find({ 
+        role: { $in: managementRoleNames }
+      }).select('_id');
+
+      authorizedManagers.forEach(user => {
+        // Don't notify the applicant
+        if (user._id.toString() !== userId.toString()) {
+          NotificationService.createNotification({
+            recipient: user._id,
             title: 'New Leave Request',
             message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
             type: 'request',
             icon: 'event_busy',
             route: '/dashboard/leaves-admin'
-        });
-    });
+          });
+        }
+      });
+    }
+
+
+    const rolesWithReports = await Role.find({ 
+      permissions: 'leaves-reports',
+      name: { $nin: managementRoleNames } 
+    }).select('name');
+    const reportRoleNames = rolesWithReports.map(r => r.name);
+
+    if (reportRoleNames.length > 0) {
+      const reportViewers = await Employee.find({ 
+        role: { $in: reportRoleNames }
+      }).select('_id');
+
+      reportViewers.forEach(user => {
+        if (user._id.toString() !== userId.toString()) {
+          NotificationService.createNotification({
+            recipient: user._id,
+            title: 'Leave Application Filed',
+            message: `${employee.firstName} ${employee.lastName} applied for ${type}. Check reports for details.`,
+            type: 'request',
+            icon: 'summarize',
+            route: '/dashboard/leaves-summary'
+          });
+        }
+      });
+    }
 
     return leave;
   }
@@ -67,9 +119,16 @@ class LeaveService {
     return { leaves, stats };
   }
 
-  async updateLeaveStatus(id, status) {
+  async updateLeaveStatus(id, status, currentUser) {
     const leave = await Leave.findById(id);
     if (!leave) throw new Error('Leave not found');
+
+    const isAdmin = currentUser.role?.toLowerCase() === 'admin';
+    const isAssignedManager = leave.manager?.toString() === currentUser._id.toString();
+
+    if (!isAdmin && !isAssignedManager) {
+      throw new Error('You are not authorized to update this leave request');
+    }
 
     let employee = await Employee.findById(leave.employee);
     if (!employee.leaveBalance || !employee.leaveBalance.casual) {
@@ -97,6 +156,7 @@ class LeaveService {
 
     await employee.save();
     leave.status = status;
+    leave.approvedBy = currentUser._id;
     await leave.save();
 
     const isApproved = newStatus === 'approved';
@@ -112,8 +172,78 @@ class LeaveService {
     return leave;
   }
 
-  async getAllLeaves() {
-    return await Leave.find().populate('employee', 'firstName lastName employeeId').sort('-startDate');
+  async getAllLeaves(user) {
+    let query = {};
+    if (user.role !== 'Admin') {
+      // Find all employees reporting to this manager
+      const subordinates = await Employee.find({ reportingManager: user._id }).select('_id');
+      const subordinateIds = subordinates.map(s => s._id);
+      
+      query.employee = { $in: subordinateIds };
+    }
+    return await Leave.find(query)
+      .populate({
+        path: 'employee',
+        select: 'firstName lastName employeeId reportingManager',
+        populate: {
+          path: 'reportingManager',
+          select: 'firstName lastName'
+        }
+      })
+      .populate('manager', 'firstName lastName')
+      .populate('approvedBy', 'firstName lastName')
+      .sort('-createdAt');
+  }
+
+  async getLeaveSummary(user) {
+    const isHR = user.role?.toLowerCase() === 'hr';
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    
+    if (!isHR && !isAdmin) {
+      throw new Error('Not authorized to view leave summary');
+    }
+
+    const leaves = await Leave.find()
+      .populate({
+        path: 'employee',
+        select: 'firstName lastName employeeId leaveBalance reportingManager',
+        populate: { path: 'reportingManager', select: 'firstName lastName' }
+      })
+      .populate('approvedBy', 'firstName lastName')
+      .populate('manager', 'firstName lastName')
+      .sort({ createdAt: -1 });
+
+    const summary = leaves.map(leave => {
+      const emp = leave.employee;
+      
+      // Robust Logic to match Management Tab: 
+      // 1. Action Processor (approvedBy)
+      // 2. Assigned Manager (manager)
+      // 3. Current Reporting Manager (emp.reportingManager)
+      let displayApprover = 'Pending';
+      const status = (leave.status || '').toLowerCase();
+      
+      if (status !== 'pending' && status !== '') {
+        const approver = leave.approvedBy || leave.manager || emp?.reportingManager;
+        displayApprover = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+      }
+
+      return {
+        _id: leave._id,
+        firstName: emp?.firstName || 'N/A',
+        lastName: emp?.lastName || '',
+        employeeId: emp?.employeeId || 'N/A',
+        type: leave.type,
+        days: leave.days,
+        status: leave.status,
+        reason: leave.reason,
+        startDate: leave.startDate,
+        approvedBy: displayApprover,
+        createdAt: leave.createdAt
+      };
+    });
+
+    return summary;
   }
 }
 
