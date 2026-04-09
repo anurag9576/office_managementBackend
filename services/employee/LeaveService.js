@@ -28,8 +28,9 @@ class LeaveService {
       manager: employee.reportingManager
     });
 
-    // Notify Reporting Manager
+    // 1. Notify Assigned Manager (Reporting Manager)
     if (employee.reportingManager) {
+      console.log(`Notifying assigned manager: ${employee.reportingManager}`);
       await NotificationService.createNotification({
         recipient: employee.reportingManager,
         title: 'New Leave Request',
@@ -38,57 +39,42 @@ class LeaveService {
         icon: 'event_busy',
         route: '/dashboard/leaves-admin'
       });
+    } else {
+      console.log('No reporting manager assigned for this employee');
     }
 
-    // 2. Notify people with 'leaves-admin' permission (Admins, Managers, etc.)
-    const Role = require('../../models/Role');
-    const rolesWithMgmt = await Role.find({ permissions: 'leaves-admin' }).select('name');
-    const managementRoleNames = rolesWithMgmt.map(r => r.name);
-
-    if (managementRoleNames.length > 0) {
-      const authorizedManagers = await Employee.find({ 
-        role: { $in: managementRoleNames }
-      }).select('_id');
-
-      authorizedManagers.forEach(user => {
-        // Don't notify the applicant
-        if (user._id.toString() !== userId.toString()) {
-          NotificationService.createNotification({
-            recipient: user._id,
-            title: 'New Leave Request',
-            message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
-            type: 'request',
-            icon: 'event_busy',
-            route: '/dashboard/leaves-admin'
-          });
-        }
-      });
+    // 2. Notify Admins
+    const admins = await Employee.find({ role: 'Admin' }).select('_id');
+    for (const admin of admins) {
+      if (admin._id.toString() !== userId.toString() && 
+          admin._id.toString() !== employee.reportingManager?.toString()) {
+        console.log(`Notifying Admin: ${admin._id}`);
+        await NotificationService.createNotification({
+          recipient: admin._id,
+          title: 'New Leave Request (Admin)',
+          message: `${employee.firstName} ${employee.lastName} has applied for ${days} days of ${type}.`,
+          type: 'request',
+          icon: 'admin_panel_settings',
+          route: '/dashboard/leaves-admin'
+        });
+      }
     }
 
-
-    const rolesWithReports = await Role.find({ 
-      permissions: 'leaves-reports',
-      name: { $nin: managementRoleNames } 
-    }).select('name');
-    const reportRoleNames = rolesWithReports.map(r => r.name);
-
-    if (reportRoleNames.length > 0) {
-      const reportViewers = await Employee.find({ 
-        role: { $in: reportRoleNames }
-      }).select('_id');
-
-      reportViewers.forEach(user => {
-        if (user._id.toString() !== userId.toString()) {
-          NotificationService.createNotification({
-            recipient: user._id,
-            title: 'Leave Application Filed',
-            message: `${employee.firstName} ${employee.lastName} applied for ${type}. Check reports for details.`,
-            type: 'request',
-            icon: 'summarize',
-            route: '/dashboard/leaves-summary'
-          });
-        }
-      });
+    // 3. Notify HR
+    const hrUsers = await Employee.find({ role: 'HR' }).select('_id');
+    for (const hr of hrUsers) {
+      if (hr._id.toString() !== userId.toString() && 
+          hr._id.toString() !== employee.reportingManager?.toString()) {
+        console.log(`Notifying HR: ${hr._id}`);
+        await NotificationService.createNotification({
+          recipient: hr._id,
+          title: 'Leave Application Filed',
+          message: `${employee.firstName} ${employee.lastName} applied for ${type}.`,
+          type: 'request',
+          icon: 'summarize',
+          route: '/dashboard/leaves-summary'
+        });
+      }
     }
 
     return leave;
