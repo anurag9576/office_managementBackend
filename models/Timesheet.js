@@ -17,8 +17,13 @@ const timesheetSchema = new mongoose.Schema({
     },
     branchName: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        default: ''
+    },
+    taskName: {
+        type: String,
+        trim: true,
+        default: ''
     },
     task: {
         type: String,
